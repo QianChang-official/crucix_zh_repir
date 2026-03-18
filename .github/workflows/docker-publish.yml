@@ -49,6 +49,7 @@ jobs:
         with:
           images: |
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+            ${{ vars.DOCKERHUB_ENABLED == 'true' && format('{0}/{1}', secrets.DOCKERHUB_USERNAME, 'crucix') || '' }}
           tags: |
             type=raw,value=latest,enable={{is_default_branch}}
             type=semver,pattern={{version}}
