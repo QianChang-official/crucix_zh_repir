@@ -2,10 +2,11 @@
 // CPI, unemployment, nonfarm payrolls, PPI. No auth required (v1 API).
 // v2 with registration key supports more requests; v1 is rate-limited but functional.
 
-import { safeFetch, daysAgo } from '../utils/fetch.mjs';
+import { safeFetch } from '../utils/fetch.mjs';
 
 const V1_BASE = 'https://api.bls.gov/publicAPI/v1/timeseries/data/';
 const V2_BASE = 'https://api.bls.gov/publicAPI/v2/timeseries/data/';
+const FRED_CSV_BASE = 'https://fred.stlouisfed.org/graph/fredgraph.csv';
 
 // Key economic series
 const SERIES = {
@@ -14,6 +15,14 @@ const SERIES = {
   'LNS14000000':    'Unemployment Rate',
   'CES0000000001':  'Nonfarm Payrolls (thousands)',
   'WPUFD49104':     'PPI Final Demand',
+};
+
+const FRED_FALLBACK_SERIES = {
+  CUUR0000SA0: 'CPIAUCSL',
+  CUUR0000SA0L1E: 'CPILFESL',
+  LNS14000000: 'UNRATE',
+  CES0000000001: 'PAYEMS',
+  WPUFD49104: 'PPIACO',
 };
 
 // Fetch a single series via GET (v1, no key needed)
@@ -50,6 +59,119 @@ export async function getSeries(seriesIds, opts = {}) {
   } catch (e) {
     return { error: e.message };
   }
+}
+
+async function fetchTextWithTimeout(url, timeout = 15000) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeout);
+  try {
+    const res = await fetch(url, {
+      signal: controller.signal,
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        Accept: 'text/csv,text/plain,*/*',
+      },
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.text();
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+function parseFredCsvObservations(csvText) {
+  return String(csvText || '')
+    .split(/\r?\n/)
+    .slice(1)
+    .map(line => line.trim())
+    .filter(Boolean)
+    .map(line => {
+      const commaIndex = line.indexOf(',');
+      if (commaIndex < 0) return null;
+      const date = line.slice(0, commaIndex).trim();
+      const rawValue = line.slice(commaIndex + 1).trim();
+      const value = Number.parseFloat(rawValue);
+      if (!date || rawValue === '.' || !Number.isFinite(value)) return null;
+      return { date, value };
+    })
+    .filter(Boolean);
+}
+
+function buildIndicatorFromObservations(id, label, observations = []) {
+  const valid = observations.filter(entry => Number.isFinite(entry.value));
+  if (!valid.length) return { id, label, value: null, date: null, momChange: null, momChangePct: null };
+
+  const latest = valid[valid.length - 1];
+  const previous = valid.length > 1 ? valid[valid.length - 2] : null;
+  const change = previous ? +(latest.value - previous.value).toFixed(4) : null;
+  const changePct = previous && previous.value !== 0
+    ? +(((latest.value - previous.value) / previous.value) * 100).toFixed(4)
+    : null;
+
+  return {
+    id,
+    label,
+    value: latest.value,
+    period: latest.date,
+    date: latest.date,
+    momChange: change,
+    momChangePct: changePct,
+  };
+}
+
+function buildSignalsFromIndicators(indicators = []) {
+  const get = id => indicators.find(indicator => indicator.id === id);
+  const unemployment = get('LNS14000000');
+  const cpi = get('CUUR0000SA0');
+  const coreCpi = get('CUUR0000SA0L1E');
+  const payrolls = get('CES0000000001');
+  const signals = [];
+
+  if ((unemployment?.value ?? 0) > 5.0) {
+    signals.push(`Unemployment elevated at ${unemployment.value}%`);
+  }
+  if ((cpi?.momChangePct ?? 0) > 0.4) {
+    signals.push(`CPI-U MoM jump: ${cpi.momChangePct}%`);
+  }
+  if ((coreCpi?.momChangePct ?? 0) > 0.3) {
+    signals.push(`Core CPI MoM rising: ${coreCpi.momChangePct}%`);
+  }
+  if ((payrolls?.momChange ?? 0) < -50) {
+    signals.push(`Nonfarm payrolls dropped by ${Math.abs(payrolls.momChange)}K`);
+  }
+
+  return signals;
+}
+
+async function getFredFallbackIndicators() {
+  const entries = Object.entries(FRED_FALLBACK_SERIES);
+  const results = await Promise.all(entries.map(async ([id, fredId]) => {
+    try {
+      const params = new URLSearchParams({ id: fredId, cosd: '2018-01-01' });
+      const csvText = await fetchTextWithTimeout(`${FRED_CSV_BASE}?${params}`);
+      const observations = parseFredCsvObservations(csvText);
+      return buildIndicatorFromObservations(id, SERIES[id] || id, observations);
+    } catch {
+      return { id, label: SERIES[id] || id, value: null, date: null, momChange: null, momChangePct: null };
+    }
+  }));
+
+  return results.filter(result => result.value != null);
+}
+
+async function buildFredFallbackBriefing(reason) {
+  const indicators = await getFredFallbackIndicators();
+  if (!indicators.length) return null;
+
+  return {
+    source: 'BLS',
+    timestamp: new Date().toISOString(),
+    mode: 'fred-csv-fallback',
+    stale: true,
+    note: `BLS unavailable, using FRED CSV fallback: ${reason}`,
+    indicators,
+    signals: buildSignalsFromIndicators(indicators),
+  };
 }
 
 // Extract the latest observation from a BLS series response
@@ -98,20 +220,24 @@ export async function briefing(apiKey) {
   const resp = await getSeries(seriesIds, { apiKey });
 
   if (resp.error) {
+    const fallback = await buildFredFallbackBriefing(resp.error);
+    if (fallback) return fallback;
     return { source: 'BLS', error: resp.error, timestamp: new Date().toISOString() };
   }
 
   if (resp.status !== 'REQUEST_SUCCEEDED' || !resp.Results?.series?.length) {
+    const fallbackReason = resp.message?.[0] || 'BLS API returned no data';
+    const fallback = await buildFredFallbackBriefing(fallbackReason);
+    if (fallback) return fallback;
     return {
       source: 'BLS',
-      error: resp.message?.[0] || 'BLS API returned no data',
+      error: fallbackReason,
       rawStatus: resp.status,
       timestamp: new Date().toISOString(),
     };
   }
 
   const indicators = [];
-  const signals = [];
 
   for (const s of resp.Results.series) {
     const id = s.seriesID;
@@ -136,27 +262,13 @@ export async function briefing(apiKey) {
       momChange: mom ? mom.change : null,
       momChangePct: mom ? mom.changePct : null,
     });
-
-    // Generate signals
-    if (id === 'LNS14000000' && value > 5.0) {
-      signals.push(`Unemployment elevated at ${value}%`);
-    }
-    if (id === 'CUUR0000SA0' && mom && mom.changePct > 0.4) {
-      signals.push(`CPI-U MoM jump: ${mom.changePct}% (${mom.previousPeriod} -> ${mom.currentPeriod})`);
-    }
-    if (id === 'CUUR0000SA0L1E' && mom && mom.changePct > 0.3) {
-      signals.push(`Core CPI MoM rising: ${mom.changePct}%`);
-    }
-    if (id === 'CES0000000001' && mom && mom.change < -50) {
-      signals.push(`Nonfarm payrolls dropped by ${Math.abs(mom.change)}K`);
-    }
   }
 
   return {
     source: 'BLS',
     timestamp: new Date().toISOString(),
     indicators,
-    signals,
+    signals: buildSignalsFromIndicators(indicators),
   };
 }
 
