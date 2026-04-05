@@ -47,6 +47,8 @@ import { briefing as launchLibrary } from './sources/launch-library.mjs';
 // === Tier 5: Live Market Data ===
 import { briefing as yfinance } from './sources/yfinance.mjs';
 import { briefing as worldBank } from './sources/worldbank.mjs';
+import { briefing as hotNews } from './sources/hot-news.mjs';
+import { briefing as flightera } from './sources/flightera.mjs';
 
 // === Tier 6: Cyber & Infrastructure ===
 import { briefing as cisaKev } from './sources/cisa-kev.mjs';
@@ -78,6 +80,8 @@ export const SOURCE_DEFINITIONS = [
   { name: 'USAspending', fn: usaspending },
   { name: 'Comtrade', fn: comtrade },
   { name: 'WorldBank', fn: worldBank },
+  { name: 'Hot-News', fn: hotNews },
+  { name: 'Flightera', fn: flightera },
 
   // Tier 3: Weather, Environment, Technology, Social
   { name: 'NOAA', fn: noaa },
