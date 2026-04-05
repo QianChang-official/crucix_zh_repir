@@ -62,6 +62,8 @@ function normalizeDelayStats(ident, payload) {
   };
 }
 
+import { getFlightCache, saveFlightCache } from '../../lib/db.mjs';
+
 export async function briefing() {
   const apiKey = process.env.FLIGHTERA_RAPIDAPI_KEY || '';
   if (!apiKey) {
@@ -78,6 +80,16 @@ export async function briefing() {
 
   const airports = getConfiguredAirports();
   const dt = new Date().toISOString().slice(0, 10);
+
+  // Check daily cache first
+  try {
+    const cached = await getFlightCache(dt);
+    if (cached && cached.stats?.length) {
+      console.error(`[Flightera] Using cached data for ${dt} (${cached.stats.length} airports)`);
+      return { ...cached, fromCache: true, timestamp: new Date().toISOString() };
+    }
+  } catch {}
+
   const results = await Promise.allSettled(
     airports.map(async ident => {
       const departures = await fetchRapidJson('/airport/delays_by_day', {
@@ -99,7 +111,7 @@ export async function briefing() {
     .slice(0, 4)
     .map(stat => `AIRPORT DELAY WATCH: ${stat.ident} delays ${stat.delayedPercent || '--'}% with avg ${stat.averageDelayMin || '--'} min`);
 
-  return {
+  const payload = {
     source: 'Flightera',
     timestamp: new Date().toISOString(),
     configured: true,
@@ -107,6 +119,14 @@ export async function briefing() {
     stats,
     signals,
   };
+
+  // Save to daily cache
+  try {
+    await saveFlightCache(dt, 'Flightera', payload);
+    console.error(`[Flightera] Cached data for ${dt}`);
+  } catch {}
+
+  return payload;
 }
 
 if (process.argv[1]?.endsWith('flightera.mjs')) {
