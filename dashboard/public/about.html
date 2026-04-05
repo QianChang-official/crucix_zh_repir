@@ -64,8 +64,10 @@ code{font-family:"IBM Plex Mono",monospace;font-size:12px;color:#d9f7ff}
           <li>简体中文界面和来源中文映射</li>
           <li>中国新闻网、人民网、新华网、央视网、新浪新闻聚合</li>
           <li>orz-ai/hot_news 财讯热榜接入</li>
-          <li>同题聚类、冲突提示、分页快讯流和中国新闻数据流图</li>
+          <li>同题聚类、冲突提示、自然滚动快讯流和中国新闻数据流图</li>
           <li>中港指数、中国主题 ETF 与可选航空延误观察</li>
+          <li>China Finance RSS 桥接：东方财富/同花顺 7×24 快讯接入</li>
+          <li>Microsoft 365 Copilot / Azure OpenAI 集成，支持 AI 增强观点</li>
         </ul>
       </div>
       <div class="card">
@@ -75,11 +77,37 @@ code{font-family:"IBM Plex Mono",monospace;font-size:12px;color:#d9f7ff}
     </div>
 
     <section class="section">
+      <h2>集成与数据源</h2>
+      <div class="grid" style="margin-top:12px">
+        <div class="card">
+          <h2>China Finance RSS Bridge</h2>
+          <p>轻量级 RSS 桥接服务，将财联社电报、东方财富 7×24、同花顺 7×24、雪球用户动态转为标准 RSS 2.0。单文件 Python，最小依赖。</p>
+          <ul>
+            <li>GitHub：<a href="https://github.com/yuxuan-made/china-finance-rss" target="_blank" rel="noopener noreferrer">yuxuan-made/china-finance-rss</a></li>
+            <li>掘金：<a href="https://juejin.cn/post/7607989878777724980" target="_blank" rel="noopener noreferrer">写了个单文件 Python 脚本，把财联社/东财/同花顺/雪球转成 RSS</a></li>
+          </ul>
+          <p style="font-size:12px;color:var(--muted)">在 <code>.env</code> 中设置 <code>CN_FINANCE_RSS_URL</code> 指向运行中的 RSS 桥接服务器即可启用（默认 <code>http://localhost:8053</code>）。</p>
+        </div>
+        <div class="card">
+          <h2>Microsoft 365 Copilot API</h2>
+          <p>通过 Azure OpenAI 或 Microsoft Graph Copilot Chat API (preview) 为可执行观点面板提供 AI 增强分析。</p>
+          <ul>
+            <li>文档：<a href="https://learn.microsoft.com/zh-cn/microsoft-365/copilot/extensibility/copilot-apis-overview" target="_blank" rel="noopener noreferrer">Microsoft 365 Copilot APIs 概述</a></li>
+            <li>需 M365 Copilot 许可证或 Azure OpenAI 部署</li>
+          </ul>
+          <p style="font-size:12px;color:var(--muted)">在 <code>.env</code> 中设置 <code>LLM_PROVIDER=copilot</code> 并配置 Azure OpenAI 或 Graph 凭据。</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
       <h2>实现方向</h2>
       <p>这个分支的主要改动集中在 <code>dashboard/inject.mjs</code> 和 <code>dashboard/public/jarvis.html</code> 两层：</p>
       <ul>
         <li>后端聚合层负责把新增的中国新闻、热榜、航空延误等来源统一成前端可消费结构。</li>
         <li>前端页面负责把这些数据渲染成分页卡片、中国新闻聚合面板、机翻入口和轻量数据流图。</li>
+        <li>China Finance RSS 桥接层将东方财富/同花顺的 7×24 快讯通过本地 RSS 服务接入，与现有 orz.ai 热榜互补。</li>
+        <li>LLM 层新增 Microsoft Copilot 提供商，支持 Azure OpenAI 部署和 M365 Graph Chat API 两种模式。</li>
       </ul>
     </section>
 
@@ -89,6 +117,8 @@ code{font-family:"IBM Plex Mono",monospace;font-size:12px;color:#d9f7ff}
         <li>本分支仅对开源项目做本地化、聚合和前端展示增强。</li>
         <li>本分支不主张自己是上游官方源。</li>
         <li>原项目结构、思路和基础能力来自上游 Crucix。</li>
+        <li><a href="https://github.com/yuxuan-made/china-finance-rss" target="_blank" rel="noopener noreferrer">china-finance-rss</a> 为独立开源项目（MIT），由 <a href="https://juejin.cn/post/7607989878777724980" target="_blank" rel="noopener noreferrer">@_墨名</a> 开发维护。</li>
+        <li>Microsoft 365 Copilot API 为 Microsoft 产品，使用需遵守 <a href="https://learn.microsoft.com/en-us/legal/m365-copilot-apis/terms-of-use" target="_blank" rel="noopener noreferrer">Copilot APIs 使用条款</a>。</li>
         <li>如有品牌、素材、资源引用或表述上的异议，请直接提出，维护者会尽快删除或调整相关内容。</li>
       </ul>
     </section>
