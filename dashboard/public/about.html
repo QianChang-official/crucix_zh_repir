@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Crucix About</title>
+<style>
+*{box-sizing:border-box}
+:root{--bg:#050a10;--panel:#0c141d;--panel2:#101b26;--line:rgba(255,255,255,.08);--accent:#64f0c8;--accent2:#44ccff;--text:#edf7f3;--muted:#9ab0ab;--warn:#ffb84c}
+body{margin:0;font-family:"IBM Plex Sans","Segoe UI",sans-serif;background:radial-gradient(circle at top,rgba(68,204,255,.08),transparent 38%),linear-gradient(180deg,#04080d,#071018 55%,#09131d);color:var(--text);line-height:1.7}
+.wrap{max-width:1120px;margin:0 auto;padding:40px 20px 72px}
+.hero{padding:28px;border:1px solid rgba(100,240,200,.18);background:linear-gradient(180deg,rgba(8,18,28,.94),rgba(7,13,20,.92));box-shadow:0 22px 60px rgba(0,0,0,.34)}
+.kicker{font:600 12px/1.2 "IBM Plex Mono",monospace;letter-spacing:.18em;text-transform:uppercase;color:var(--accent)}
+h1{margin:12px 0 10px;font-size:36px;line-height:1.08}
+.sub{max-width:840px;color:var(--muted);font-size:15px}
+.hero-actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:18px}
+.hero-actions a{display:inline-flex;align-items:center;justify-content:center;padding:10px 14px;border:1px solid rgba(68,204,255,.24);background:rgba(68,204,255,.08);color:#d9f7ff;text-decoration:none;font:600 11px/1 "IBM Plex Mono",monospace;letter-spacing:.1em;text-transform:uppercase}
+.hero-actions a.alt{border-color:rgba(100,240,200,.22);background:rgba(100,240,200,.08);color:#e9fff8}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;margin-top:22px}
+.card{padding:18px;border:1px solid var(--line);background:linear-gradient(180deg,rgba(255,255,255,.035),rgba(255,255,255,.02))}
+.card h2{margin:0 0 10px;font-size:15px;font-family:"IBM Plex Mono",monospace;letter-spacing:.12em;text-transform:uppercase;color:var(--accent)}
+.card p,.card li{font-size:14px;color:#d6e3df}
+ul{margin:0;padding-left:18px}
+.section{margin-top:18px;padding:18px;border:1px solid var(--line);background:rgba(255,255,255,.025)}
+.section h2{margin:0 0 10px;font-size:15px;font-family:"IBM Plex Mono",monospace;letter-spacing:.12em;text-transform:uppercase;color:var(--accent2)}
+.section p,.section li{font-size:14px;color:#d6e3df}
+.note{margin-top:18px;padding:16px;border:1px solid rgba(255,184,76,.22);background:rgba(255,184,76,.08);color:#ffebcc}
+code{font-family:"IBM Plex Mono",monospace;font-size:12px;color:#d9f7ff}
+@media (max-width:720px){.wrap{padding:20px 14px 48px}h1{font-size:28px}.hero{padding:20px}}
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <section class="hero">
+      <div class="kicker">About This Branch</div>
+      <h1>Crucix 中文增强分支说明</h1>
+      <div class="sub">
+        这是一个基于上游 Crucix 的非官方本地化增强版本。目标不是冒充官方，而是在保留原项目核心结构的前提下，把它调整成更适合中文用户直接观察、排查和使用的本地情报终端。
+      </div>
+      <div class="hero-actions">
+        <a href="https://github.com/calesthio/Crucix" target="_blank" rel="noopener noreferrer">上游仓库</a>
+        <a class="alt" href="/" target="_self">返回仪表盘</a>
+      </div>
+    </section>
+
+    <div class="grid">
+      <div class="card">
+        <h2>上游信息</h2>
+        <p>官方上游仓库：<a href="https://github.com/calesthio/Crucix" target="_blank" rel="noopener noreferrer">calesthio/Crucix</a></p>
+        <p>本仓库不是官方发行版，也不代表上游维护者的正式配置、文档或默认路线。</p>
+      </div>
+      <div class="card">
+        <h2>这个分支的目标</h2>
+        <ul>
+          <li>降低中文用户上手门槛</li>
+          <li>补齐国内新闻和财讯参考面</li>
+          <li>增强时间排序、分页、数据流展示和机翻入口</li>
+          <li>在不破坏主框架的前提下提高可读性和可用性</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h2>当前增强点</h2>
+        <ul>
+          <li>简体中文界面和来源中文映射</li>
+          <li>中国新闻网、人民网、新华网、央视网、新浪新闻聚合</li>
+          <li>orz-ai/hot_news 财讯热榜接入</li>
+          <li>同题聚类、冲突提示、分页快讯流和中国新闻数据流图</li>
+          <li>中港指数、中国主题 ETF 与可选航空延误观察</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h2>使用建议</h2>
+        <p>如果你需要尽量接近官方默认行为，请直接使用上游仓库。如果你需要中文界面、国内新闻、机翻入口和更贴合中文环境的展示，可以使用当前分支。</p>
+      </div>
+    </div>
+
+    <section class="section">
+      <h2>实现方向</h2>
+      <p>这个分支的主要改动集中在 <code>dashboard/inject.mjs</code> 和 <code>dashboard/public/jarvis.html</code> 两层：</p>
+      <ul>
+        <li>后端聚合层负责把新增的中国新闻、热榜、航空延误等来源统一成前端可消费结构。</li>
+        <li>前端页面负责把这些数据渲染成分页卡片、中国新闻聚合面板、机翻入口和轻量数据流图。</li>
+      </ul>
+    </section>
+
+    <section class="section">
+      <h2>权利与引用声明</h2>
+      <ul>
+        <li>本分支仅对开源项目做本地化、聚合和前端展示增强。</li>
+        <li>本分支不主张自己是上游官方源。</li>
+        <li>原项目结构、思路和基础能力来自上游 Crucix。</li>
+        <li>如有品牌、素材、资源引用或表述上的异议，请直接提出，维护者会尽快删除或调整相关内容。</li>
+      </ul>
+    </section>
+
+    <div class="note">
+      如上游维护者、素材权利人或其他相关权利方认为本仓库中的特定内容、表述、品牌展示或资源引用不适合继续保留，请发出通知，维护者会尽快删除、替换或调整相关内容。
+    </div>
+  </div>
+</body>
+</html>
