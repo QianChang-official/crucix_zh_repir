@@ -19,7 +19,7 @@
   --text:#e8f4f0;--dim:#6a8a82;--accent:#64f0c8;--accent2:#44ccff;
   --warn:#ffb84c;--danger:#ff5f63;--mono:'IBM Plex Mono',monospace;--sans:'Space Grotesk',sans-serif;
 }
-html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--sans);overflow-x:hidden;overflow-y:auto}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--sans);overflow-x:auto;overflow-y:auto;scrollbar-gutter:stable both-edges}
 .bg-grid{position:fixed;inset:0;pointer-events:none;opacity:0;
   background-image:linear-gradient(rgba(100,240,200,0.03) 1px,transparent 1px),linear-gradient(90deg,rgba(100,240,200,0.03) 1px,transparent 1px);
   background-size:60px 60px;mask-image:radial-gradient(ellipse at 50% 30%,black 20%,transparent 70%)}
@@ -42,7 +42,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--s
 #bootFinal{margin-top:24px;font-family:var(--mono);font-size:14px;font-weight:600;color:var(--accent);letter-spacing:0.15em;opacity:0}
 
 /* MAIN */
-#main{opacity:0;min-height:100vh;position:relative;padding:10px 12px}
+#main{opacity:0;min-height:100vh;position:relative;padding:10px 12px 78px}
 
 /* TOPBAR */
 .topbar{display:flex;align-items:center;justify-content:space-between;padding:12px 18px;border:1px solid var(--border);background:var(--panel);backdrop-filter:blur(20px);flex-wrap:wrap;gap:10px}
@@ -58,6 +58,11 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--s
 .top-right{display:flex;align-items:center;gap:10px}
 .meta-pill{font-family:var(--mono);font-size:11px;color:var(--dim);letter-spacing:0.06em;padding:5px 10px;border:1px solid var(--border)}
 .meta-pill .v{color:var(--text);font-weight:500}
+.source-errors-panel{display:none;position:fixed;top:44px;right:120px;z-index:9999;background:#181c24;border:1px solid var(--border);max-width:420px;max-height:320px;overflow-y:auto;padding:8px 0;box-shadow:0 4px 16px rgba(0,0,0,0.5);font-family:var(--mono);font-size:11px}
+.se-head{padding:4px 12px;color:#f44;font-weight:700;letter-spacing:0.1em;border-bottom:1px solid var(--border);margin-bottom:4px}
+.se-row{display:flex;gap:8px;padding:3px 12px;align-items:baseline}
+.se-name{color:var(--accent2);white-space:nowrap;min-width:80px}
+.se-err{color:var(--dim);word-break:break-all}
 .alert-badge{padding:5px 12px;font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;border:1px solid rgba(255,95,99,0.4);color:#fff;background:linear-gradient(135deg,rgba(255,95,99,0.2),rgba(255,95,99,0.08))}
 .guide-btn{display:inline-flex;align-items:center;justify-content:center;padding:5px 12px;font-family:var(--mono);font-size:11px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;border:1px solid rgba(68,204,255,0.28);color:var(--accent2);background:rgba(68,204,255,0.07);cursor:pointer;transition:all 0.2s;text-decoration:none}
 .guide-btn:hover{border-color:rgba(68,204,255,0.5);background:rgba(68,204,255,0.12);color:#d9f7ff}
@@ -65,7 +70,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--s
 .perf-pill:hover{border-color:var(--accent2);color:var(--text);background:rgba(68,204,255,0.08)}
 
 /* GRID */
-.grid{display:grid;grid-template-columns:240px 1fr 340px;gap:10px;margin-top:10px;min-height:calc(100vh - 100px)}
+.grid{display:grid;grid-template-columns:220px minmax(0,0.88fr) 310px;gap:10px;margin-top:10px;min-height:calc(100vh - 100px)}
 .col{display:flex;flex-direction:column;gap:10px}
 .g-panel{border:1px solid var(--border);background:var(--glass);backdrop-filter:blur(16px);padding:12px;position:relative;overflow:hidden}
 .g-panel::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(100,240,200,0.15),transparent);pointer-events:none}
@@ -100,10 +105,12 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--s
 
 /* CENTER: MAP */
 .map-region-bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:10px 12px;border:1px solid var(--border);background:var(--panel);backdrop-filter:blur(20px)}
-.map-container{flex:1;min-height:560px;border:1px solid var(--border);background:radial-gradient(ellipse at center,rgba(4,12,20,1),rgba(2,4,8,1));position:relative;overflow:hidden}
-#globeViz{width:100%;height:100%;cursor:grab}
+#mapContainer,.map-container{contain:layout paint;isolation:isolate}
+.map-container{flex:1;min-height:360px;height:min(40vh,410px);max-height:420px;border:1px solid var(--border);background:radial-gradient(ellipse at center,rgba(4,12,20,1),rgba(2,4,8,1));position:relative;overflow:hidden;transform:translateZ(0)}
+#globeViz{width:100%;height:100%;cursor:grab;transform:translateZ(0);backface-visibility:hidden}
 #globeViz:active{cursor:grabbing}
-#globeViz canvas{outline:none}
+#globeViz canvas{outline:none;display:block;transform:translateZ(0);backface-visibility:hidden}
+#flatMapSvg{transform:translateZ(0);backface-visibility:hidden}
 #flatMapSvg .land{fill:rgba(180,200,210,0.08);stroke:rgba(200,220,230,0.15);stroke-width:0.5}
 #flatMapSvg .land:hover{fill:rgba(100,240,200,0.08)}
 #flatMapSvg .graticule{fill:none;stroke:rgba(100,240,200,0.04);stroke-width:0.4}
@@ -161,17 +168,22 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--s
 .news-icon{fill:rgba(129,212,250,0.8);filter:drop-shadow(0 0 3px rgba(129,212,250,0.4));transition:fill .2s}
 .news-icon:hover{fill:rgba(129,212,250,1)}
 
-/* LOWER GRID — flex layout for responsive panel sizing */
+/* LOWER GRID — tabbed module navigation */
+.lower-tabs{display:flex;gap:0;margin-top:10px;border-bottom:1px solid var(--border);padding:0 4px}
+.lower-tab{font-family:var(--mono);font-size:11px;letter-spacing:0.06em;padding:7px 14px;color:var(--dim);cursor:pointer;border:1px solid transparent;border-bottom:none;background:transparent;transition:all 0.2s}
+.lower-tab:hover{color:var(--text);background:rgba(255,255,255,0.03)}
+.lower-tab.active{color:var(--accent2);border-color:var(--border);border-bottom-color:var(--bg);background:rgba(68,204,255,0.05);position:relative;top:1px}
+.lower-tab .tab-badge{font-size:9px;margin-left:4px;color:var(--dim);opacity:0.7}
 .lower{display:flex;flex-wrap:wrap;gap:10px;margin-top:10px;align-items:flex-start}
 .lower .g-panel{min-width:0;box-sizing:border-box}
-.lower .lp-ticker{flex:1.2 1 240px;max-width:380px}
-.lower .lp-cn{flex:1.4 1 280px;max-width:430px}
+.lower .lp-ticker{flex:1.05 1 220px;max-width:360px}
+.lower .lp-cn{flex:1.2 1 260px;max-width:400px}
 .right-delta .delta-list{max-height:200px}
-.lower .lp-macro{flex:2.5 1 360px}
-.lower .lp-ideas{flex:1.5 1 300px}
-.lower .lp-flow{flex:1.15 1 260px;max-width:360px}
+.lower .lp-macro{flex:1.9 1 340px}
+.lower .lp-ideas{flex:1.15 1 280px}
+.lower .lp-flow{flex:0.95 1 240px;max-width:320px}
 .lower-wide{width:100%}
-.metrics-row{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:6px}
+.metrics-row{display:grid;grid-template-columns:repeat(auto-fill,minmax(116px,1fr));gap:6px}
 .mc{padding:10px;border:1px solid rgba(255,255,255,0.05);background:rgba(255,255,255,0.02)}
 .mc .ml{font-family:var(--mono);font-size:9px;text-transform:uppercase;letter-spacing:0.08em;color:var(--dim)}
 .mc .mv{font-family:var(--mono);font-size:18px;font-weight:600;margin-top:6px;display:block}
@@ -247,12 +259,12 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--s
 .tk-src.anz{color:#80cbc4;border-color:rgba(128,203,196,0.3)}
 .tk-src.us{color:#90caf9;border-color:rgba(144,202,249,0.3)}
 .tk-src.other{color:#b0bec5;border-color:rgba(176,190,197,0.2)}
-.tk-head{font-size:11px;line-height:1.35;color:#c8d8d2;margin-top:3px}
-.tk-summary{margin-top:5px;font-size:10px;line-height:1.45;color:#a8b8b2}
+.tk-head{font-size:11px;line-height:1.35;color:#c8d8d2;margin-top:3px;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3;overflow:hidden}
+.tk-summary{margin-top:5px;font-size:10px;line-height:1.45;color:#a8b8b2;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3;overflow:hidden}
 .tk-time{font-family:var(--mono);font-size:8px;color:var(--dim);margin-top:2px}
 .tk-meta-row{margin-top:5px;font-family:var(--mono);font-size:8px;line-height:1.5;color:rgba(176,190,197,0.85)}
 .tk-conflict{margin-top:6px;padding:6px 8px;border:1px solid rgba(255,138,128,0.16);background:rgba(255,138,128,0.06);font-size:10px;line-height:1.45;color:#ffd0cb}
-.tk-alt{margin-top:5px;padding-top:5px;border-top:1px solid rgba(255,255,255,0.04);font-size:10px;line-height:1.45;color:#c8d8d2}
+.tk-alt{margin-top:5px;padding-top:5px;border-top:1px solid rgba(255,255,255,0.04);font-size:10px;line-height:1.45;color:#c8d8d2;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
 .tk-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:7px}
 .tk-link{margin-left:auto;display:inline-flex;align-items:center;gap:3px;font-family:var(--mono);font-size:9px;letter-spacing:0.08em;text-transform:uppercase;color:var(--accent2);text-decoration:none;border:1px solid rgba(68,204,255,0.2);padding:2px 5px;background:rgba(68,204,255,0.05)}
 .tk-link:hover{border-color:rgba(68,204,255,0.45);color:#d9f7ff;background:rgba(68,204,255,0.12)}
@@ -260,12 +272,23 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--s
 .tk-link.translate{color:var(--accent);border-color:rgba(100,240,200,0.2);background:rgba(100,240,200,0.05)}
 .tk-link.translate:hover{border-color:rgba(100,240,200,0.45);color:#f2fffb;background:rgba(100,240,200,0.12)}
 
-.stream-feed{display:flex;flex-direction:column;min-height:160px;border:1px solid rgba(100,240,200,0.08);background:rgba(0,0,0,0.15)}
+.stream-panel{position:relative;outline:none;--stream-row-height:110px;--stream-visible-rows:3}
+.stream-panel:focus-visible{border-color:rgba(68,204,255,0.32);box-shadow:0 0 0 1px rgba(68,204,255,0.18) inset}
+.stream-feed{display:flex;flex-direction:column;min-height:160px;max-height:calc(var(--stream-row-height) * var(--stream-visible-rows));overflow-y:auto;padding-right:4px;border:1px solid rgba(100,240,200,0.08);background:rgba(0,0,0,0.15);scrollbar-width:thin;scrollbar-color:rgba(100,240,200,0.24) transparent;overscroll-behavior:contain}
+.stream-feed::-webkit-scrollbar{width:4px}
+.stream-feed::-webkit-scrollbar-thumb{background:rgba(100,240,200,0.24);border-radius:3px}
 .stream-empty{display:flex;align-items:center;justify-content:center;min-height:160px;padding:14px;color:var(--dim);font-family:var(--mono);font-size:10px;text-align:center;line-height:1.5}
-.stream-pager{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:8px;font-family:var(--mono);font-size:9px;color:var(--dim)}
-.stream-btn{border:1px solid rgba(100,240,200,0.16);background:rgba(100,240,200,0.05);color:var(--accent);font-family:var(--mono);font-size:9px;letter-spacing:0.08em;text-transform:uppercase;padding:5px 8px;cursor:pointer}
-.stream-btn:hover:not(:disabled){background:rgba(100,240,200,0.12);border-color:rgba(100,240,200,0.36)}
-.stream-btn:disabled{opacity:0.35;cursor:not-allowed}
+.stream-pager{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:8px;padding:6px 8px;border:1px solid rgba(100,240,200,0.08);background:rgba(255,255,255,0.02);font-family:var(--mono);font-size:9px;color:var(--dim)}
+.stream-pager span{white-space:nowrap}
+.tk-src.series{color:var(--accent2);border-color:rgba(68,204,255,0.3);background:rgba(68,204,255,0.08)}
+.panel-scroll-body{max-height:430px;overflow:auto;padding-right:4px;scrollbar-width:thin;scrollbar-color:rgba(100,240,200,0.24) transparent}
+.panel-scroll-body::-webkit-scrollbar{width:4px}
+.panel-scroll-body::-webkit-scrollbar-thumb{background:rgba(100,240,200,0.24);border-radius:3px}
+.page-wheel-dock{position:fixed;left:12px;right:12px;bottom:10px;z-index:18;display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid rgba(68,204,255,0.14);background:rgba(4,10,16,0.82);backdrop-filter:blur(14px)}
+.page-wheel-meta{font-family:var(--mono);font-size:9px;line-height:1.4;color:var(--dim);white-space:nowrap}
+.page-wheel-track{position:relative;flex:1;height:8px;border:1px solid rgba(100,240,200,0.12);background:rgba(255,255,255,0.03);overflow:hidden;cursor:pointer}
+.page-wheel-thumb{display:block;height:100%;width:100%;background:linear-gradient(90deg,rgba(68,204,255,0.32),var(--accent));transition:transform 0.2s ease,width 0.2s ease}
+.page-wheel-dock.wide .page-wheel-meta{color:var(--accent2)}
 
 .flow-summary{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px;font-family:var(--mono);font-size:9px;color:var(--dim)}
 .flow-summary span{padding:3px 6px;border:1px solid rgba(255,255,255,0.06);background:rgba(255,255,255,0.03)}
@@ -313,9 +336,9 @@ body.low-perf .ticker-wrap::-webkit-scrollbar-track{background:transparent}
 body.low-perf .ticker-wrap::-webkit-scrollbar-thumb{background:rgba(100,240,200,0.2);border-radius:2px}
 
 /* RESPONSIVE */
-@media(max-width:1400px){.grid{grid-template-columns:240px 1fr 320px}.metrics-row{grid-template-columns:repeat(3,1fr)}.src-grid{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:1400px){.grid{grid-template-columns:220px minmax(0,0.9fr) 300px}.metrics-row{grid-template-columns:repeat(3,1fr)}.src-grid{grid-template-columns:repeat(3,1fr)}}
 @media(max-width:1100px){
-  #main{padding:8px}
+  #main{padding:8px 8px 84px}
   .topbar{padding:10px 12px}
   .top-left,.top-center,.top-right{width:100%}
   .top-center{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
@@ -326,14 +349,20 @@ body.low-perf .ticker-wrap::-webkit-scrollbar-thumb{background:rgba(100,240,200,
   #centerCol{order:1}
   #rightRail{order:2}
   #leftRail{order:3}
-  .map-container{min-height:420px}
+  .map-container{min-height:300px;height:min(34vh,340px);max-height:340px}
   .map-hint{font-size:8px;right:8px}
   .map-legend{left:8px;right:8px;bottom:8px;gap:4px}
   .leg-item{font-size:8px}
   .lower .lp-ticker,.lower .lp-cn,.lower .lp-osint,.lower .lp-macro,.lower .lp-ideas,.lower .lp-flow{flex:1 1 100%;max-width:none}
+  .lower-tabs{overflow-x:auto;-webkit-overflow-scrolling:touch}
+  .lower-tab{white-space:nowrap;font-size:10px;padding:6px 10px}
   .metrics-row{grid-template-columns:repeat(2,1fr)}
   .src-grid{grid-template-columns:repeat(2,1fr)}
   .glossary-panel{top:auto;right:0;left:0;bottom:0;width:100%;max-height:min(72vh,720px);border-left:none;border-right:none;border-bottom:none}
+  .stream-feed{max-height:none;padding-right:0}
+  .panel-scroll-body{max-height:none;overflow:visible;padding-right:0}
+  .page-wheel-dock{left:8px;right:8px;bottom:8px;padding:7px 8px}
+  .page-wheel-meta{font-size:8px}
 }
 
 /* CONFLICT LAYER */
@@ -396,10 +425,15 @@ body.low-perf .ticker-wrap::-webkit-scrollbar-thumb{background:rgba(100,240,200,
         <button class="proj-toggle" id="projToggle" onclick="toggleMapMode()">地球模式</button>
         <div class="map-popup" id="mapPopup"><button class="pp-close" onclick="closePopup()">&times;</button><div class="pp-head"></div><div class="pp-text"></div><div class="pp-meta"></div><div class="pp-link-row"><a class="pp-link" target="_blank" rel="noopener noreferrer" hidden>打开链接 &#8599;</a></div></div>
       </div>
+      <div class="lower-tabs" id="lowerTabs"></div>
       <div class="lower" id="lowerGrid"></div>
     </div>
     <div class="col" id="rightRail"></div>
   </div>
+</div>
+<div class="page-wheel-dock" id="pageWheelDock" onwheel="handlePageWheel(event)" onclick="handlePageWheelClick(event)">
+  <div class="page-wheel-meta" id="pageWheelMeta">页面导航 · 纵向浏览</div>
+  <div class="page-wheel-track"><span class="page-wheel-thumb" id="pageWheelThumb"></span></div>
 </div>
 <div class="glossary-overlay" id="glossaryOverlay" onclick="if(event.target===this) closeGlossary()">
   <div class="glossary-panel">
@@ -632,6 +666,24 @@ function formatDateTimeForZone(date, timeZone){
   }).format(date);
 }
 
+function formatPreciseDateTimeForZone(date, timeZone){
+  try {
+    return new Intl.DateTimeFormat(UI_LOCALE, {
+      timeZone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      fractionalSecondDigits: 3,
+      hour12: false
+    }).format(date);
+  } catch {
+    return `${formatDateTimeForZone(date, timeZone)}.${String(date.getMilliseconds()).padStart(3,'0')}`;
+  }
+}
+
 function getSourceTimeProfile(source){
   const text = String(source || '').trim();
   return SOURCE_TIME_PROFILES.find(profile => profile.pattern.test(text)) || { country: t('time.utc','协调世界时'), timeZone: 'UTC' };
@@ -663,12 +715,17 @@ function getLagLabel(timestamp, now = new Date()){
 }
 
 let dynamicClockTimer = null;
+let preciseClockTimer = null;
+
+function refreshPreciseClockNodes(){
+  const now = new Date();
+  document.querySelectorAll('.js-system-clock').forEach(node => {
+    node.textContent = formatPreciseDateTimeForZone(now, CHINA_TIMEZONE);
+  });
+}
 
 function refreshDynamicTimeNodes(){
   const now = new Date();
-  document.querySelectorAll('.js-system-clock').forEach(node => {
-    node.textContent = formatDateTimeForZone(now, CHINA_TIMEZONE);
-  });
   document.querySelectorAll('.js-age').forEach(node => {
     node.textContent = getAge(node.dataset.ts);
   });
@@ -681,8 +738,8 @@ function refreshDynamicTimeNodes(){
 }
 
 function ensureDynamicClockTimer(){
-  if(dynamicClockTimer) return;
-  dynamicClockTimer = window.setInterval(refreshDynamicTimeNodes, 1000);
+  if(!dynamicClockTimer) dynamicClockTimer = window.setInterval(refreshDynamicTimeNodes, 1000);
+  if(!preciseClockTimer) preciseClockTimer = window.setInterval(refreshPreciseClockNodes, 50);
 }
 
 // === GLOBALS ===
@@ -690,9 +747,12 @@ let globe = null;
 let globeInitialized = false;
 let flightsVisible = true;
 let lowPerfMode = localStorage.getItem('crucix_low_perf') === 'true';
+let activeTab = localStorage.getItem('crucix_active_tab') || 'news';
 let isFlat = shouldStartFlat();
 let currentRegion = 'world';
 let flatSvg, flatProjection, flatPath, flatG, flatZoom, flatW, flatH;
+let globeZoomFrame = 0;
+let globePointVisibilityBand = null;
 const BOOTSTRAP_AIR_CACHE = {
   air: Array.isArray(D?.air) ? JSON.parse(JSON.stringify(D.air)) : [],
   airMeta: D?.airMeta ? JSON.parse(JSON.stringify(D.airMeta)) : null,
@@ -853,6 +913,20 @@ function saveCachedAirLayer(payload){
   }catch{}
 }
 
+function syncSourceMetaFromHealth(data){
+  const next = data && typeof data === 'object' ? data : {};
+  if(!Array.isArray(next.health) || !next.health.length) return next;
+  const sourcesQueried = next.meta?.sourcesQueried || next.health.length;
+  const sourcesOk = next.health.filter(item => !item.err).length;
+  next.meta = {
+    ...(next.meta || {}),
+    sourcesQueried,
+    sourcesOk,
+    sourcesFailed: Math.max(0, sourcesQueried - sourcesOk),
+  };
+  return next;
+}
+
 function applyClientSideFallbacks(data){
   const next = data && typeof data === 'object' ? data : {};
   const liveTotal = getAirLayerTotal(next.air);
@@ -863,10 +937,10 @@ function applyClientSideFallbacks(data){
       timestamp: next.meta?.timestamp || next.airMeta?.timestamp || null,
       source: next.airMeta?.source || 'OpenSky'
     });
-    return next;
+    return syncSourceMetaFromHealth(next);
   }
   const cached = loadCachedAirLayer() || (getAirLayerTotal(BOOTSTRAP_AIR_CACHE.air) > 0 ? BOOTSTRAP_AIR_CACHE : null);
-  if(!cached) return next;
+  if(!cached) return syncSourceMetaFromHealth(next);
   next.air = cloneJson(cached.air) || cached.air;
   next.airMeta = {
     ...(next.airMeta || {}),
@@ -876,7 +950,14 @@ function applyClientSideFallbacks(data){
     source: cached.source || '空域缓存',
     timestamp: cached.timestamp || next.airMeta?.timestamp || next.meta?.timestamp || null
   };
-  return next;
+  if(Array.isArray(next.health)){
+    const openSkyHealth = next.health.find(entry => entry.n === 'OpenSky');
+    if(openSkyHealth){
+      openSkyHealth.err = false;
+      openSkyHealth.stale = true;
+    }
+  }
+  return syncSourceMetaFromHealth(next);
 }
 
 function signalToText(value){
@@ -1066,15 +1147,44 @@ function renderTopbar(){
     <div class="top-right">
       <button class="meta-pill perf-pill" onclick="togglePerfMode()" title="降低视觉负载，并在移动端优先使用平面模式">${t('dashboard.visuals','动态链路')} <span class="v" id="perfStatus">${lowPerfMode?t('dashboard.visualsLite','轻流线'):t('dashboard.visualsFull','全流线')}</span></button>
       <span class="meta-pill">扫描 <span class="v">${(D.meta.totalDurationMs/1000).toFixed(1)}s</span></span>
-      <span class="meta-pill">${t('dashboard.beijingTime','北京时间')} <span class="v js-system-clock">${formatDateTimeForZone(new Date(), CHINA_TIMEZONE)}</span></span>
+      <span class="meta-pill">授时中心 <span class="v js-system-clock">${formatPreciseDateTimeForZone(new Date(), CHINA_TIMEZONE)}</span></span>
       ${sweepTimestamp ? `<span class="meta-pill">${t('dashboard.dataLag','信息时差')} <span class="v js-lag" data-ts="${escapeAttr(sweepTimestamp)}">${getLagLabel(sweepTimestamp)}</span></span>` : ''}
-      <span class="meta-pill">${t('dashboard.sources','源')} <span class="v">${D.meta.sourcesOk}/${D.meta.sourcesQueried}</span></span>
+      <span class="meta-pill source-pill" ${(D.sourceErrors||[]).length ? 'onclick="toggleSourceErrors()" style="cursor:pointer"' : ''}>${t('dashboard.sources','源')} <span class="v">${D.meta.sourcesOk}/${D.meta.sourcesQueried}</span>${(D.sourceErrors||[]).length ? ' <span class="v" style="color:#f44">&#x25BC;</span>' : ''}</span>
       ${D.delta?.summary ? `<span class="meta-pill">波动 <span class="v">${D.delta.summary.direction==='risk-off'?'&#x25B2; '+t('dashboard.riskOff','风险偏空'):D.delta.summary.direction==='risk-on'?'&#x25BC; '+t('dashboard.riskOn','风险回暖'):'&#x25C6; '+t('dashboard.mixed','混合波动')}</span></span>` : ''}
       <a class="guide-btn" href="/about.html" target="_blank" rel="noopener noreferrer">About</a>
       <button class="guide-btn" onclick="openGlossary()">信号说明</button>
       <span class="alert-badge">高警戒</span>
     </div>`;
   renderRegionControls();
+  renderSourceErrorsPanel();
+}
+
+function renderSourceErrorsPanel(){
+  let panel = document.getElementById('sourceErrorsPanel');
+  const errors = D.sourceErrors || [];
+  if(!errors.length){ if(panel) panel.remove(); return; }
+  if(!panel){
+    panel = document.createElement('div');
+    panel.id = 'sourceErrorsPanel';
+    panel.className = 'source-errors-panel';
+    document.body.appendChild(panel);
+  }
+  panel.innerHTML = `<div class="se-head">失效源 (${errors.length})</div>${errors.map(e => `<div class="se-row"><span class="se-name">${cleanText(e.name)}</span><span class="se-err">${cleanText(e.error).substring(0,80)}</span></div>`).join('')}`;
+  panel.style.display = panel.dataset.open === '1' ? 'block' : 'none';
+}
+
+function toggleSourceErrors(){
+  const panel = document.getElementById('sourceErrorsPanel');
+  if(!panel) return;
+  const open = panel.dataset.open !== '1';
+  panel.dataset.open = open ? '1' : '0';
+  panel.style.display = open ? 'block' : 'none';
+}
+
+function switchTab(tabId){
+  activeTab = tabId;
+  localStorage.setItem('crucix_active_tab', tabId);
+  renderLower();
 }
 
 // === LEFT RAIL ===
@@ -1117,6 +1227,8 @@ function renderLeftRail(){
   const nextLaunch = D.space?.upcomingLaunches?.[0];
   const topSpaceHeadline = D.space?.headlines?.[0];
   const m2Text = Number.isFinite(m2?.value) ? `$${(m2.value/1000).toFixed(1)}T` : '--';
+  const vixValue = Number.isFinite(vix?.value) ? vix.value : D.markets?.vix?.value;
+  const usdValue = Number.isFinite(usd?.value) ? usd.value : D.markets?.fx?.[0]?.price;
   const issText = Number.isFinite(D.space?.issAltitudeKm)
     ? `ALT ${D.space.issAltitudeKm.toFixed(0)} km`
     : D.space?.issPosition
@@ -1145,9 +1257,9 @@ function renderLeftRail(){
     </div>
     <div class="g-panel">
       <div class="sec-head"><h3>${t('panels.riskGauges','风险刻度')}</h3><span class="badge">${t('badges.stress','压力')}</span></div>
-      <div class="econ-row"><span class="elabel">${t('metrics.vix','VIX')}（恐慌）</span><span class="eval" style="color:${vix?.value>20?'var(--warn)':'var(--accent)'}">${vix?.value||'--'}</span></div>
+      <div class="econ-row"><span class="elabel">${t('metrics.vix','VIX')}（恐慌）</span><span class="eval" style="color:${vixValue>20?'var(--warn)':'var(--accent)'}">${vixValue != null ? Number(vixValue).toFixed(1) : '--'}</span></div>
       <div class="econ-row"><span class="elabel">${t('metrics.hySpread','HY Spread')}</span><span class="eval">${hy?.value||'--'}</span></div>
-      <div class="econ-row"><span class="elabel">${t('metrics.usdIndex','USD Index')}</span><span class="eval">${usd?.value?.toFixed(1)||'--'}</span></div>
+      <div class="econ-row"><span class="elabel">${t('metrics.usdIndex','USD Index')}</span><span class="eval">${usdValue != null ? Number(usdValue).toFixed(1) : '--'}</span></div>
       <div class="econ-row"><span class="elabel">${t('metrics.joblessClaims','Jobless Claims')}</span><span class="eval">${claims?.value?.toLocaleString()||'--'}</span></div>
       <div class="econ-row"><span class="elabel">${t('metrics.mortgage30y','30Y Mortgage')}</span><span class="eval">${mort?.value||'--'}%</span></div>
       <div class="econ-row"><span class="elabel">${t('metrics.m2Supply','M2 Supply')}</span><span class="eval">${m2Text}</span></div>
@@ -1352,7 +1464,7 @@ function plotMarkers(){
       color:'rgba(100,240,200,0.8)', type:'air', priority:1,
       label: localizeRegionLabel(a.region)+' '+a.total,
       popHead: localizeRegionLabel(a.region), popMeta: '空域活动',
-      popText: `${a.total} 架航空器<br>无呼号: ${a.noCallsign}<br>高空目标: ${a.highAlt}<br>主要来源: ${a.top.slice(0,3).map(t=>localizeCountryLabel(t[0])+' ('+t[1]+')').join(', ')}`
+      popText: buildAirPopupText(a)
     });
     labels.push({lat:c.lat, lng:c.lon+2, text:localizeRegionLabel(a.region)+' '+a.total, size:0.35, color:'rgba(106,138,130,0.8)'});
   });
@@ -1585,26 +1697,37 @@ function plotMarkers(){
   }
   globe.arcsData(arcs);
 
-  // Zoom-aware marker sizing: scale markers and labels with camera altitude
-  const onGlobeZoom = () => {
+  const getPointVisibilityBand = altitude => altitude > 2.0 ? 'far' : altitude > 1.2 ? 'mid' : 'near';
+  const getVisiblePoints = band => {
+    if(band === 'far') return points.filter(point => (point.priority||3) <= 1);
+    if(band === 'mid') return points.filter(point => (point.priority||3) <= 2);
+    return points;
+  };
+  const applyZoomState = () => {
+    if(!globe) return;
     const alt = globe.pointOfView().altitude;
     const sf = Math.max(0.6, Math.min(2.5, 1.5 / alt));
     globe.pointRadius(d => (d.size || 0.3) * sf);
-    // Hide labels when zoomed far out to reduce clutter
-    const showLabels = alt < 1.8;
-    globe.labelSize(d => showLabels ? (d.size || 0.4) : 0);
-    // Scale arc strokes with zoom
+    globe.labelSize(d => alt < 1.8 ? (d.size || 0.4) : 0);
     globe.arcStroke(d => (d.stroke || 0.4) * Math.max(0.5, Math.min(1.5, 1.2 / alt)));
     globe.arcDashAnimateTime(lowPerfMode ? 0 : 2600);
-    // Priority-based point visibility: hide low-priority markers when zoomed out
-    if(alt > 2.0){
-      globe.pointsData(points.filter(p => (p.priority||3) <= 1));
-    } else if(alt > 1.2){
-      globe.pointsData(points.filter(p => (p.priority||3) <= 2));
-    } else {
-      globe.pointsData(points);
+    const nextBand = getPointVisibilityBand(alt);
+    if(nextBand !== globePointVisibilityBand){
+      globePointVisibilityBand = nextBand;
+      globe.pointsData(getVisiblePoints(nextBand));
     }
   };
+
+  // Zoom-aware marker sizing: scale markers and labels with camera altitude
+  const onGlobeZoom = () => {
+    if(globeZoomFrame) return;
+    globeZoomFrame = window.requestAnimationFrame(() => {
+      globeZoomFrame = 0;
+      applyZoomState();
+    });
+  };
+  globePointVisibilityBand = null;
+  applyZoomState();
   if(typeof globe.onZoom==='function') globe.onZoom(onGlobeZoom);
 }
 
@@ -1664,16 +1787,7 @@ function toggleFlights() {
   if(!globe){
     return;
   }
-  if(flightsVisible) {
-    plotMarkers(); // re-render with arcs
-  } else {
-    globe.arcsData([]); // hide arcs
-    // Remove air-type points
-    const pts = globe.pointsData().filter(p => p.type !== 'air');
-    globe.pointsData(pts);
-    const lbls = globe.labelsData().filter(l => l.text && !l.text.match(/\d+$/));
-    globe.labelsData(lbls);
-  }
+  plotMarkers();
 }
 
 // === FLAT/GLOBE TOGGLE ===
@@ -1763,7 +1877,7 @@ function plotFlatMarkers(){
     D.air.forEach((a,i)=>{
       const c=airCoords[i];if(!c)return;
       const g=addPt(c.lat,c.lon,4+a.total/40,'rgba(100,240,200,0.7)','rgba(100,240,200,0.3)',
-        ev=>showPopup(ev,localizeRegionLabel(a.region),`${a.total} 架航空器<br>无呼号: ${a.noCallsign}<br>高空目标: ${a.highAlt}`,'空域活动'),1);
+        ev=>showPopup(ev,localizeRegionLabel(a.region),buildAirPopupText(a),'空域活动'),1);
       if(g) g.append('text').attr('class','marker-label').attr('x',10).attr('y',3).attr('fill','var(--dim)').attr('font-size','9px').attr('font-family','var(--mono)').text(localizeRegionLabel(a.region)+' '+a.total);
     });
   }
@@ -1919,8 +2033,6 @@ function buildStreamTimeMeta(timestamp, source){
   return parts.join(' · ');
 }
 
-const STREAM_PAGE_STATE = Object.create(null);
-const STREAM_PAGE_META = Object.create(null);
 const FRESHNESS_LABELS = {
   realtime: '实时',
   flash: '2小时内',
@@ -1935,7 +2047,7 @@ function clampNumber(value, min, max){
 function getSourceChipClass(source){
   const value = String(source || '').toLowerCase();
   if (/china news|people cn|xinhua|cctv china|sina china/.test(value)) return 'cn';
-  if (/cls hot|sina finance hot|eastmoney hot|xueqiu hot/.test(value)) return 'hot';
+  if (/cls hot|cls telegraph|wallstreetcn live|wall street cn live|sina finance hot|eastmoney hot|xueqiu hot/.test(value)) return 'hot';
   if (value.includes('bbc')) return 'bbc';
   if (value.includes('nyt') || value.includes('times')) return 'nyt';
   if (value.includes('jazeera') || value.includes('alj')) return 'alj';
@@ -1956,37 +2068,83 @@ function buildTranslateUrl(url){
   return safeUrl ? `https://translate.google.com/translate?sl=auto&tl=zh-CN&u=${encodeURIComponent(safeUrl)}` : null;
 }
 
-function getPagedSlice(key, items, pageSize){
-  const total = items.length;
-  const totalPages = Math.max(1, Math.ceil(total / pageSize));
-  const currentPage = clampNumber(STREAM_PAGE_STATE[key] || 0, 0, totalPages - 1);
-  STREAM_PAGE_STATE[key] = currentPage;
-  STREAM_PAGE_META[key] = { total, pageSize, totalPages };
-  const start = currentPage * pageSize;
-  return {
-    page: currentPage,
-    totalPages,
-    items: items.slice(start, start + pageSize),
-  };
+function isGenericLiveFeedUrl(url){
+  const safeUrl = safeExternalUrl(url);
+  if(!safeUrl) return false;
+  try{
+    const parsed = new URL(safeUrl);
+    const host = parsed.hostname.replace(/^www\./,'');
+    const path = parsed.pathname.replace(/\/+$/,'') || '/';
+    return (host === 'cls.cn' && path === '/telegraph') || (host === 'wallstreetcn.com' && path === '/livenews');
+  }catch{
+    return false;
+  }
 }
 
-function moveStreamPage(key, delta){
-  const meta = STREAM_PAGE_META[key];
-  if(!meta) return;
-  const next = clampNumber((STREAM_PAGE_STATE[key] || 0) + delta, 0, Math.max(0, meta.totalPages - 1));
-  if(next === (STREAM_PAGE_STATE[key] || 0)) return;
-  STREAM_PAGE_STATE[key] = next;
-  reinit();
+function getExternalLinkLabel(url){
+  const safeUrl = safeExternalUrl(url);
+  if(!safeUrl) return '原文 &#8599;';
+  try{
+    const parsed = new URL(safeUrl);
+    const host = parsed.hostname.replace(/^www\./,'');
+    const path = parsed.pathname.replace(/\/+$/,'') || '/';
+    if(host === 'cls.cn' && path === '/telegraph') return '电报页 &#8599;';
+    if(host === 'wallstreetcn.com' && path === '/livenews') return '直播页 &#8599;';
+  }catch{}
+  return '原文 &#8599;';
 }
 
-function buildStreamPager(key, page, totalPages, total){
-  return `<div class="stream-pager"><button class="stream-btn" onclick="moveStreamPage('${key}',-1)" ${page===0?'disabled':''}>上页</button><span>${page+1}/${totalPages} · ${total} 条</span><button class="stream-btn" onclick="moveStreamPage('${key}',1)" ${page>=totalPages-1?'disabled':''}>下页</button></div>`;
+function buildExternalLinkActions(url){
+  const safeUrl = safeExternalUrl(url);
+  if(!safeUrl) return '';
+  const translateUrl = isGenericLiveFeedUrl(safeUrl) ? null : buildTranslateUrl(safeUrl);
+  return `<div class="tk-actions"><a class="tk-link" href="${safeUrl}" target="_blank" rel="noopener noreferrer">${getExternalLinkLabel(safeUrl)}</a>${translateUrl?`<a class="tk-link translate" href="${translateUrl}" target="_blank" rel="noopener noreferrer">机翻 &#8599;</a>`:''}</div>`;
+}
+
+function escapeRegExp(value){
+  return String(value || '').replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+}
+
+function stripLeadingSeriesTag(text, series){
+  const cleaned = cleanText(text || '');
+  const label = cleanText(series || '').trim();
+  if(!cleaned || !label) return cleaned;
+  const stripped = cleaned.replace(new RegExp(`^\\s*[【\[]\\s*${escapeRegExp(label)}\\s*[】\]]\\s*`), '').trim();
+  return stripped || cleaned;
+}
+
+function buildSeriesChip(series){
+  const label = cleanText(series || '').trim();
+  return label ? `<span class="tk-src series">${label.substring(0,18)}</span>` : '';
+}
+
+function formatAirSample(sample){
+  const ident = cleanText(sample?.callsign || sample?.hex || '未知目标');
+  const country = localizeCountryLabel(sample?.country || 'Unknown');
+  const altitude = sample?.altitudeM != null ? ` · ${Math.round(sample.altitudeM)}m` : '';
+  return `${ident} · ${country}${altitude}`;
+}
+
+function buildAirPopupText(item){
+  const topSources = (item.top || []).slice(0,3).map(entry => `${localizeCountryLabel(entry[0])} (${entry[1]})`).join(', ');
+  const samples = (item.samples || []).slice(0,3).map(formatAirSample).join('<br>');
+  return `${item.total} 架航空器<br>无呼号: ${item.noCallsign}<br>高空目标: ${item.highAlt}<br>主要来源: ${topSources || '暂无'}${samples ? `<br>代表样本:<br>${samples}` : ''}`;
 }
 
 function buildNewsFeedCard(item){
-  const safeUrl = safeExternalUrl(item.url);
-  const translateUrl = buildTranslateUrl(safeUrl);
-  return `<div class="tk-card ${item.urgent?'urgent':''}"><div class="tk-top"><span class="tk-src ${getSourceChipClass(item.source)}">${localizeSourceLabel(item.source||'NEWS').substring(0,18)}</span>${item.region?`<span class="tk-src other">${localizeRegionLabel(item.region)}</span>`:''}${item.urgent?'<span class="tk-src warn">热</span>':''}</div><div class="tk-head">${cleanText(item.headline||'')}</div><div class="tk-time">${buildStreamTimeMeta(item.timestamp,item.source)}</div>${safeUrl?`<div class="tk-actions"><a class="tk-link" href="${safeUrl}" target="_blank" rel="noopener noreferrer">原文 &#8599;</a>${translateUrl?`<a class="tk-link translate" href="${translateUrl}" target="_blank" rel="noopener noreferrer">机翻 &#8599;</a>`:''}</div>`:''}</div>`;
+  const actionLinks = buildExternalLinkActions(item.url);
+  const followSourceCount = Math.max(0, (item.sourceCount || 1) - 1);
+  const latestChanged = item.latestTimestamp && parseTimestampMs(item.latestTimestamp) !== parseTimestampMs(item.timestamp);
+  const followParts = [];
+  if (followSourceCount > 0 || latestChanged) {
+    followParts.push(`首发 ${localizeSourceLabel(item.source || 'NEWS')}`);
+    if (followSourceCount > 0) followParts.push(`${followSourceCount} 源跟进`);
+    else if (latestChanged) followParts.push('同源滚动更新');
+    if (latestChanged) followParts.push(`最新跟进 ${getAge(item.latestTimestamp)}`);
+    if (item.latestSource && item.latestSource !== item.source) followParts.push(`最近来源 ${localizeSourceLabel(item.latestSource)}`);
+  }
+  const followMeta = followParts.length ? `<div class="tk-meta-row">${followParts.join(' · ')}</div>` : '';
+  return `<div class="tk-card ${item.urgent?'urgent':''}"><div class="tk-top"><span class="tk-src ${getSourceChipClass(item.source)}">${localizeSourceLabel(item.source||'NEWS').substring(0,18)}</span>${item.region?`<span class="tk-src other">${localizeRegionLabel(item.region)}</span>`:''}${item.urgent?'<span class="tk-src warn">热</span>':''}</div><div class="tk-head">${cleanText(item.headline||'')}</div><div class="tk-time">${buildStreamTimeMeta(item.timestamp,item.source)}</div>${followMeta}${actionLinks}</div>`;
 }
 
 function buildOsintFeedCard(item){
@@ -1997,16 +2155,33 @@ function buildOsintFeedCard(item){
 
 function buildChinaNewsCard(cluster){
   const lead = cluster.items?.[0] || {};
-  const safeUrl = safeExternalUrl(cluster.leadUrl || lead.url);
-  const translateUrl = buildTranslateUrl(safeUrl);
-  const sourceTags = (cluster.sources||[]).slice(0,4).map(source=>`<span class="tk-src ${getSourceChipClass(source)}">${localizeSourceLabel(source)}</span>`).join('');
-  const alternates = (cluster.items||[]).slice(1,3).map(item=>`<div class="tk-alt">${localizeSourceLabel(item.source)} · ${cleanText(item.title)}</div>`).join('');
-  return `<div class="tk-card ${cluster.conflict?'urgent':''}"><div class="tk-top">${sourceTags}<span class="tk-src other">${FRESHNESS_LABELS[cluster.freshness] || '背景'}</span>${cluster.sourceCount>1?`<span class="tk-src hot">同题 ${cluster.sourceCount} 源</span>`:''}${cluster.conflict?'<span class="tk-src warn">口径冲突</span>':''}</div><div class="tk-head">${cleanText(cluster.headline)}</div>${cluster.summary?`<div class="tk-summary">${cleanText(cluster.summary)}</div>`:''}<div class="tk-time">${buildStreamTimeMeta(cluster.latestAt,(cluster.sources||[])[0] || lead.source)}</div>${cluster.sources?.length?`<div class="tk-meta-row">${cluster.sources.map(localizeSourceLabel).join(' · ')}</div>`:''}${cluster.conflict?'<div class="tk-conflict">同题内容里出现了确认/否认或升/降类表述差异，建议继续交叉核实。</div>':''}${alternates}${safeUrl?`<div class="tk-actions"><a class="tk-link" href="${safeUrl}" target="_blank" rel="noopener noreferrer">原文 &#8599;</a>${translateUrl?`<a class="tk-link translate" href="${translateUrl}" target="_blank" rel="noopener noreferrer">机翻 &#8599;</a>`:''}</div>`:''}</div>`;
+  const leadSeries = cluster.leadSeries || lead.series || '';
+  const sourceTags = (cluster.sources||[]).slice(0,3).map(source=>`<span class="tk-src ${getSourceChipClass(source)}">${localizeSourceLabel(source)}</span>`).join('');
+  const seriesChip = buildSeriesChip(leadSeries);
+  const leadHeadline = stripLeadingSeriesTag(cluster.headline || lead.title || '', leadSeries);
+  const alternates = (cluster.items||[]).slice(1,3).map(item=>{
+    const series = cleanText(item.series || '').trim();
+    const title = stripLeadingSeriesTag(item.title || '', series);
+    return `<div class="tk-alt">${localizeSourceLabel(item.source)}${series ? ` · ${series}` : ''} · ${title}</div>`;
+  }).join('');
+  const clusterMeta = [];
+  if (leadSeries) clusterMeta.push(`栏目 ${cleanText(leadSeries)}`);
+  clusterMeta.push(`首发 ${localizeSourceLabel(cluster.leadSource || (cluster.sources||[])[0] || lead.source || 'China News')}`);
+  if ((cluster.sourceCount || 0) > 1) clusterMeta.push(`${cluster.sourceCount} 源跟进`);
+  if (cluster.latestAt && parseTimestampMs(cluster.latestAt) !== parseTimestampMs(cluster.eventAt || cluster.firstSeen)) clusterMeta.push(`最新跟进 ${getAge(cluster.latestAt)}`);
+  if (cluster.latestSeries && cluster.latestSeries !== leadSeries) clusterMeta.push(`最新栏目 ${cleanText(cluster.latestSeries)}`);
+  if (cluster.latestSource && cluster.latestSource !== cluster.leadSource) clusterMeta.push(`最近来源 ${localizeSourceLabel(cluster.latestSource)}`);
+  const leadUrl = cluster.leadUrl || lead.url;
+  const hasCls = (cluster.sources||[]).some(s => /CLS/i.test(s)) || /CLS/i.test(lead.source || '');
+  const clsTelegraphLink = hasCls ? `<a class="tk-link" href="https://www.cls.cn/telegraph" target="_blank" rel="noopener noreferrer">电报页 &#8599;</a>` : '';
+  const mainLink = buildExternalLinkActions(leadUrl);
+  const linksHtml = hasCls && mainLink ? mainLink.replace('</div>', `${clsTelegraphLink}</div>`) : (clsTelegraphLink ? `<div class="tk-actions">${clsTelegraphLink}</div>` : mainLink);
+  return `<div class="tk-card ${cluster.conflict?'urgent':''}"><div class="tk-top">${seriesChip}${sourceTags}<span class="tk-src other">${FRESHNESS_LABELS[cluster.freshness] || '背景'}</span>${cluster.sourceCount>1?`<span class="tk-src hot">同题 ${cluster.sourceCount} 源</span>`:''}${cluster.conflict?'<span class="tk-src warn">口径冲突</span>':''}</div><div class="tk-head">${leadHeadline}</div>${cluster.summary?`<div class="tk-summary">${cleanText(cluster.summary)}</div>`:''}<div class="tk-time">${buildStreamTimeMeta(cluster.eventAt || cluster.firstSeen || cluster.latestAt, cluster.leadSource || (cluster.sources||[])[0] || lead.source)}</div>${clusterMeta.length?`<div class="tk-meta-row">${clusterMeta.join(' · ')}</div>`:''}${cluster.conflict?'<div class="tk-conflict">同题内容里出现了确认/否认或升/降类表述差异，建议继续交叉核实。</div>':''}${alternates}${linksHtml}</div>`;
 }
 
-function buildPagedStreamPanel({key,title,badge,className,items,pageSize,renderItem,emptyText,subhead=''}){
-  const paged = getPagedSlice(key, items, pageSize);
-  return `<div class="g-panel ${className}" style="display:flex;flex-direction:column"><div class="sec-head"><h3>${title}</h3><span class="badge">${badge}</span></div>${subhead}<div class="stream-feed">${paged.items.length ? paged.items.map(renderItem).join('') : `<div class="stream-empty">${emptyText}</div>`}</div>${buildStreamPager(key, paged.page, paged.totalPages, items.length)}</div>`;
+function buildPagedStreamPanel({key,title,badge,className,items,pageSize,renderItem,emptyText,subhead='',itemUnit='条'}){
+  const rowHeight = itemUnit === '组' ? 124 : 106;
+  return `<div class="g-panel ${className} stream-panel" style="display:flex;flex-direction:column;--stream-visible-rows:3;--stream-row-height:${rowHeight}px" tabindex="0" title="滚轮自然滚动"><div class="sec-head"><h3>${title}</h3><span class="badge">${badge}</span></div>${subhead}<div class="stream-feed" data-scroll-key="stream-${escapeAttr(key)}">${items.length ? items.map(renderItem).join('') : `<div class="stream-empty">${emptyText}</div>`}</div></div>`;
 }
 
 function buildChinaFlowPanel(){
@@ -2110,12 +2285,20 @@ function renderLower(){
     world.militaryBurden?.[0] ? { label: '军费负担', value: `${localizeCountryLabel(world.militaryBurden[0].name)} ${world.militaryBurden[0].militaryPct?.toFixed(1)}%`, sub: '军费 / GDP' } : null,
   ].filter(Boolean);
   const worldSignals = (world.signals||[]).slice(0,2).map(signal=>`<div>${localizeSignalText(signal)}</div>`).join('');
+  const chinaMonitor = mkt.chinaMonitor || {};
+  const formatYi = value => value != null && Number.isFinite(value) ? `${value >= 0 ? '+' : ''}${value.toFixed(1)} 亿` : '--';
+  const chinaMonitorIndexCards = (chinaMonitor.indexes || []).map(item=>`<div class="mc"><div class="ml">${item.name}</div><span class="mv">${item.price != null ? item.price.toLocaleString(undefined,{maximumFractionDigits:2}) : '--'}</span><span class="ms" style="color:${(item.changePct||0) >= 0 ? 'var(--accent)' : 'var(--warn)'}">${(item.changePct||0) >= 0 ? '▲' : '▼'} ${(item.changePct||0) >= 0 ? '+' : ''}${item.changePct?.toFixed(2) || '--'}%</span></div>`).join('');
+  const chinaMonitorRows = (chinaMonitor.topGainers || []).slice(0,4).map(item=>`<div class="signal-row"><strong>${item.name} ${item.changePct >= 0 ? '+' : ''}${item.changePct?.toFixed(2) || '--'}%</strong><p>${item.code} · 现价 ${item.price != null ? item.price.toFixed(2) : '--'} · 主力净额 ${formatYi(item.mainNetInYi)}</p></div>`).join('');
+  const chinaMainForceRows = (chinaMonitor.mainForce || []).slice(0,3).map(item=>`<div class="signal-row"><strong>${item.name}</strong><p>${item.code} · 主力净流 ${formatYi(item.mainNetInYi)} · 占比 ${item.mainNetRatio != null ? `${item.mainNetRatio.toFixed(2)}%` : '--'}</p></div>`).join('');
+  const northboundBlock = chinaMonitor.northbound?.date
+    ? `<div style="margin-bottom:8px"><div style="font-family:var(--mono);font-size:9px;color:var(--dim);margin-bottom:4px;letter-spacing:1px">北向/南向资金</div><div class="metrics-row"><div class="mc"><div class="ml">北向合计</div><span class="mv">${formatYi(chinaMonitor.northbound.northboundNetYi)}</span><span class="ms">${chinaMonitor.northbound.date}</span></div><div class="mc"><div class="ml">南向合计</div><span class="mv">${formatYi(chinaMonitor.northbound.southboundNetYi)}</span><span class="ms">${chinaMonitor.northbound.date}</span></div></div>${(chinaMonitor.signals||[]).length ? `<div style="margin-top:6px;padding:6px 8px;border:1px solid rgba(100,240,200,0.16);background:rgba(100,240,200,0.04);font-family:var(--mono);font-size:9px;line-height:1.5;color:var(--accent)">${chinaMonitor.signals.map(localizeSignalText).join('<br>')}</div>` : ''}</div>`
+    : '';
 
   const srcHtml=D.health.map(s=>`<div class="src-item"><div class="sd ${s.err?'err':'ok'}"></div><span>${s.n}</span></div>`).join('');
 
   const feed = [...(D.newsFeed || [])].sort((left, right) => parseTimestampMs(right.timestamp) - parseTimestampMs(left.timestamp));
   const cnSummary = D.cnNews?.summary || {};
-  const cnClusters = [...(D.cnNews?.clusters || [])].sort((left, right) => parseTimestampMs(right.latestAt) - parseTimestampMs(left.latestAt));
+  const cnClusters = [...(D.cnNews?.clusters || [])].sort((left, right) => parseTimestampMs(right.eventAt || right.firstSeen || right.latestAt) - parseTimestampMs(left.eventAt || left.firstSeen || left.latestAt));
   const aviation = D.aviation || {};
   const aviationBlock = aviation.configured
     ? aviation.stats?.length
@@ -2139,7 +2322,8 @@ function renderLower(){
     </div>`).join('') : `<div style="padding:20px;text-align:center;color:var(--dim);font-family:var(--mono);font-size:11px">
       <div style="font-size:24px;margin-bottom:8px;opacity:0.3">&#9888;</div>
       <div>尚未配置 LLM</div>
-      <div style="font-size:9px;margin-top:6px;opacity:0.6">在 .env 中设置 LLM_PROVIDER 和鉴权信息后，可启用 AI 观点模块。</div>
+      <div style="font-size:9px;margin-top:6px;opacity:0.6">在 .env 中设置 LLM_PROVIDER（支持 anthropic / openai / copilot / gemini 等 10 种）和鉴权信息后启用 AI 观点。</div>
+      <div style="font-size:8px;margin-top:4px;opacity:0.4">Microsoft 365 Copilot：设 LLM_PROVIDER=copilot + Azure OpenAI 或 Graph 凭据即可接入。</div>
     </div>`;
   const tickerPanel = buildPagedStreamPanel({
     key: 'news-feed',
@@ -2154,10 +2338,11 @@ function renderLower(){
   const chinaPanel = buildPagedStreamPanel({
     key: 'cn-news',
     title: '中国新闻聚合',
-    badge: `${cnSummary.totalItems || 0} 条`,
+    badge: `${cnClusters.length} 组`,
     className: 'lp-cn',
     items: cnClusters,
     pageSize: 6,
+    itemUnit: '组',
     renderItem: buildChinaNewsCard,
     emptyText: '等待中国新闻聚合数据。',
     subhead: `<div class="flow-summary" style="margin-bottom:8px"><span>同题 ${cnSummary.multiSourceCount || 0}</span><span>冲突 ${cnSummary.conflictCount || 0}</span><span>实时 ${cnSummary.realtimeCount || 0}</span></div>`,
@@ -2165,7 +2350,7 @@ function renderLower(){
   const flowPanel = buildChinaFlowPanel();
   const osintPanel = mobile ? buildOsintPanel('lp-osint', 240) : '';
   const macroPanel = `<div class="g-panel lp-macro">
-      <div class="sec-head"><h3>${t('panels.macroMarkets','宏观与市场')}</h3><span class="badge">${mkt.timestamp?t('badges.live','实时'):t('badges.delayed','延迟')}</span></div>
+      <div class="sec-head"><h3>${t('panels.macroMarkets','宏观与市场')}</h3><span class="badge">${mkt.timestamp?t('badges.live','实时'):t('badges.delayed','延迟')}</span></div><div class="panel-scroll-body" data-scroll-key="macro-market">
       ${hasMarkets?`<div style="margin-bottom:8px">
         <div style="font-family:var(--mono);font-size:9px;color:var(--dim);margin-bottom:4px;letter-spacing:1px">指数</div>
         <div class="metrics-row">${indexCards}</div>
@@ -2179,6 +2364,19 @@ function renderLower(){
         <div class="metrics-row">${chinaCards}</div>
         <div style="font-family:var(--mono);font-size:9px;color:var(--dim);margin-top:4px">${chinaMarketNote}</div>
       </div>`:''}
+      ${chinaMonitorIndexCards?`<div style="margin-bottom:8px">
+        <div style="font-family:var(--mono);font-size:9px;color:var(--dim);margin-bottom:4px;letter-spacing:1px">A 股指数校验链</div>
+        <div class="metrics-row">${chinaMonitorIndexCards}</div>
+      </div>`:''}
+      ${chinaMonitorRows?`<div style="margin-bottom:8px">
+        <div style="font-family:var(--mono);font-size:9px;color:var(--dim);margin-bottom:4px;letter-spacing:1px">A 股异动样本</div>
+        ${chinaMonitorRows}
+      </div>`:''}
+      ${chinaMainForceRows?`<div style="margin-bottom:8px">
+        <div style="font-family:var(--mono);font-size:9px;color:var(--dim);margin-bottom:4px;letter-spacing:1px">主力资金样本</div>
+        ${chinaMainForceRows}
+      </div>`:''}
+      ${northboundBlock}
       <div style="margin-bottom:8px">
         <div style="font-family:var(--mono);font-size:9px;color:var(--dim);margin-bottom:4px;letter-spacing:1px">加密资产</div>
         <div class="metrics-row">${cryptoCards}</div>
@@ -2198,14 +2396,31 @@ function renderLower(){
       <div style="margin-top:6px">
         <div style="font-family:var(--mono);font-size:10px;color:var(--dim);margin-bottom:4px">WTI 五日走势</div>
         <div class="spark">${sparkHtml}</div>
-      </div>${aviationBlock}
+      </div>${aviationBlock}</div>
     </div>`;
   const ideasPanel = `<div class="g-panel lp-ideas">
       <div class="sec-head"><h3>${t('panels.tradeIdeas','可执行观点')}</h3>${D.ideasSource==='llm'?'<span class="ideas-src llm">'+t('ideas.aiEnhanced','AI 增强')+'</span>':D.ideasSource==='disabled'?'<span class="ideas-src static">'+t('ideas.llmOff','LLM 关闭')+'</span>':'<span class="ideas-src static">'+t('ideas.pending','等待中')+'</span>'}</div>
+      <div class="panel-scroll-body" data-scroll-key="trade-ideas">
       ${ideasHtml}
-      <div class="disclosure">仅供信息参考。这不是投资建议，也不是任何证券的买卖推荐。所有信号判断均来自公开情报数据，不能单独作为投资决策依据。任何实际投资前，请先咨询持牌专业人士。过往表现不代表未来结果。</div>
+      <div class="disclosure">仅供信息参考。这不是投资建议，也不是任何证券的买卖推荐。所有信号判断均来自公开情报数据，不能单独作为投资决策依据。任何实际投资前，请先咨询持牌专业人士。过往表现不代表未来结果。</div></div>
     </div>`;
-  document.getElementById('lowerGrid').innerHTML=`${tickerPanel}${chinaPanel}${flowPanel}${osintPanel}${macroPanel}${ideasPanel}`;
+
+  const TAB_DEFS = [
+    { id: 'news', label: '新闻', badge: feed.length, content: () => `${tickerPanel}${chinaPanel}${flowPanel}` },
+    { id: 'markets', label: '市场', badge: '', content: () => macroPanel },
+    { id: 'osint', label: 'OSINT', badge: '', content: () => osintPanel || buildOsintPanel('lp-osint', 400) },
+    { id: 'ideas', label: '观点', badge: D.ideas?.length || 0, content: () => ideasPanel },
+  ];
+
+  const tabsEl = document.getElementById('lowerTabs');
+  if (tabsEl) {
+    tabsEl.innerHTML = TAB_DEFS.map(tab => 
+      `<button class="lower-tab ${activeTab === tab.id ? 'active' : ''}" data-tab="${tab.id}" onclick="switchTab('${tab.id}')">${tab.label}${tab.badge ? `<span class="tab-badge">${tab.badge}</span>` : ''}</button>`
+    ).join('');
+  }
+
+  const currentTabDef = TAB_DEFS.find(t => t.id === activeTab) || TAB_DEFS[0];
+  document.getElementById('lowerGrid').innerHTML = currentTabDef.content();
 }
 
 // === RIGHT RAIL ===
@@ -2215,7 +2430,7 @@ function renderRight(){
   const cyberSummary = cyber.summary || {};
   const disaster = D.disaster || {};
   // CROSS-SOURCE SIGNALS — moved from lower grid to right rail
-  const signalsHtml = D.tSignals.slice(0,6).map((s,i)=>`<div class="signal-row"><strong>信号 ${i+1}</strong><p>${localizeSignalText(s)}</p></div>`).join('');
+  const signalsHtml = D.tSignals.slice(0,8).map((s,i)=>`<div class="signal-row"><strong>信号 ${i+1}</strong><p>${localizeSignalText(s)}</p></div>`).join('');
 
   // OSINT TICKER — Telegram + WHO as flowing cards
   const signalMetrics=[
@@ -2298,7 +2513,15 @@ function renderRight(){
 // === HELPERS ===
 function getAge(d){const ts=makeDate(d);if(!ts)return '';const ms=Date.now()-ts.getTime();if(ms<0){const future=Math.abs(ms);const min=Math.ceil(future/60000);if(min<60)return `${min}分钟后`;const h=Math.ceil(future/3600000);if(h<24)return `${h}小时后`;return `${Math.ceil(h/24)}天后`;}if(ms<60000)return t('time.now','刚刚');const min=Math.floor(ms/60000);if(min<60)return `${min}${t('time.minutesAgo','分钟前')}`;const h=Math.floor(ms/3600000);if(h<24)return `${h}${t('time.hoursAgo','小时前')}`;return `${Math.floor(h/24)}${t('time.daysAgo','天前')}`}
 function cleanText(t){if(t==null)return '';const s=String(t);return s.replace(/&#39;/g,"'").replace(/&#33;/g,"!").replace(/&amp;/g,"&").replace(/<[^>]+>/g,'')}
-function safeExternalUrl(raw){try{const u=new URL(raw,location.href);return u.protocol==='http:'||u.protocol==='https:'?u.toString():null}catch{return null}}
+function safeExternalUrl(raw){
+  if(raw == null) return null;
+  const value = String(raw).trim();
+  if(!value || value === 'undefined' || value === 'null') return null;
+  try{
+    const u=new URL(value,location.href);
+    return u.protocol==='http:'||u.protocol==='https:'?u.toString():null;
+  }catch{return null;}
+}
 
 // === BOOT SEQUENCE ===
 function runBoot(){
@@ -2349,16 +2572,16 @@ function runBoot(){
 function isMobileLayout(){ return window.innerWidth <= 1100; }
 
 function buildOsintPanel(panelClass='', maxHeight=260){
-  const allPosts=[...D.tg.urgent,...D.tg.topPosts].sort((a,b)=>parseTimestampMs(b.date)-parseTimestampMs(a.date));
+  const allPosts=(Array.isArray(D.tg.recent) && D.tg.recent.length ? D.tg.recent : [...D.tg.urgent,...D.tg.topPosts]).sort((a,b)=>parseTimestampMs(b.date)-parseTimestampMs(a.date));
   const whoItems=D.who.slice(0,4).map(w=>({channel:'WHO ALERT',text:w.title,date:w.date,isWho:true}));
-  const osintItems=[...allPosts.slice(0,30),...whoItems].sort((a,b)=>parseTimestampMs(b.date)-parseTimestampMs(a.date));
+  const osintItems=[...allPosts.slice(0,80),...whoItems].sort((a,b)=>parseTimestampMs(b.date)-parseTimestampMs(a.date));
   return buildPagedStreamPanel({
     key: 'osint-feed',
     title: t('panels.osintStream','公开情报流'),
     badge: `${D.tg.urgent.length} ${t('badges.urgent','紧急')}`,
     className: panelClass,
     items: osintItems,
-    pageSize: maxHeight <= 240 ? 5 : 7,
+    pageSize: maxHeight <= 240 ? 6 : 8,
     renderItem: buildOsintFeedCard,
     emptyText: '公开情报源本轮暂无可展示条目。',
   });
@@ -2435,6 +2658,63 @@ function syncResponsiveLayout(force=false){
     renderRight();
   }
   refreshMapViewport(force && !isFlat);
+  updatePageWheelDock();
+}
+
+let pageWheelLifecycleBound = false;
+
+function getDocumentScroller(){
+  return document.scrollingElement || document.documentElement;
+}
+
+function updatePageWheelDock(){
+  const dock = document.getElementById('pageWheelDock');
+  const meta = document.getElementById('pageWheelMeta');
+  const thumb = document.getElementById('pageWheelThumb');
+  if(!dock || !meta || !thumb) return;
+  const scroller = getDocumentScroller();
+  const maxX = Math.max(0, scroller.scrollWidth - window.innerWidth);
+  const maxY = Math.max(0, scroller.scrollHeight - window.innerHeight);
+  const x = window.scrollX || scroller.scrollLeft || 0;
+  const y = window.scrollY || scroller.scrollTop || 0;
+  const widthPct = maxX > 0 ? Math.max(12, (window.innerWidth / Math.max(window.innerWidth, scroller.scrollWidth)) * 100) : 100;
+  const xPct = maxX > 0 ? (x / Math.max(1, maxX)) * (100 - widthPct) : 0;
+  thumb.style.width = `${widthPct}%`;
+  thumb.style.transform = `translateX(${xPct}%)`;
+  dock.classList.toggle('wide', maxX > 8);
+  if (maxX > 8) {
+    meta.textContent = `页面导航 · 横向 ${Math.round((x / Math.max(1, maxX)) * 100)}% · 滚轮平移`;
+  } else {
+    meta.textContent = `页面导航 · 纵向 ${Math.round((y / Math.max(1, maxY || 1)) * 100)}%`;
+  }
+}
+
+function handlePageWheel(event){
+  const scroller = getDocumentScroller();
+  const maxX = Math.max(0, scroller.scrollWidth - window.innerWidth);
+  if(maxX <= 8) return;
+  event.preventDefault();
+  const delta = Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY;
+  window.scrollBy({ left: delta * (event.shiftKey ? 2.2 : 1.25), top: 0, behavior: 'auto' });
+  updatePageWheelDock();
+}
+
+function handlePageWheelClick(event){
+  const track = event.currentTarget.querySelector('.page-wheel-track');
+  if(!track) return;
+  const scroller = getDocumentScroller();
+  const maxX = Math.max(0, scroller.scrollWidth - window.innerWidth);
+  if(maxX <= 8) return;
+  const rect = track.getBoundingClientRect();
+  const ratio = clampNumber((event.clientX - rect.left) / Math.max(1, rect.width), 0, 1);
+  window.scrollTo({ left: maxX * ratio, top: window.scrollY, behavior: 'smooth' });
+}
+
+function bindPageWheelLifecycle(){
+  if(pageWheelLifecycleBound) return;
+  pageWheelLifecycleBound = true;
+  window.addEventListener('scroll', updatePageWheelDock, { passive: true });
+  window.addEventListener('resize', updatePageWheelDock, { passive: true });
 }
 
 // === REINIT (for live updates without boot sequence) ===
@@ -2447,17 +2727,28 @@ function reinit(){
     if (node) node.scrollTop = state.top;
   }
   window.scrollTo(pageScroll.x, pageScroll.y);
+  refreshPreciseClockNodes();
   refreshDynamicTimeNodes();
+  updatePageWheelDock();
   plotMarkers();
 }
 
 let pendingLiveData = null;
 let pendingLiveFrame = 0;
+let livePollTimer = null;
+let liveReconnectTimer = null;
+let sseConnection = null;
+const LIVE_TRANSPORT = { lastMessageMs: 0 };
 
 function queueLiveUpdate(nextData){
   const nextTimestamp = nextData?.meta?.timestamp || nextData?.timestamp || null;
   const currentTimestamp = D?.meta?.timestamp || D?.timestamp || null;
-  if(nextTimestamp && currentTimestamp && nextTimestamp === currentTimestamp) return;
+  const nextMs = parseTimestampMs(nextTimestamp);
+  const currentMs = parseTimestampMs(currentTimestamp);
+  if(nextMs && currentMs && nextMs <= currentMs) return;
+  const pendingMs = parseTimestampMs(pendingLiveData?.meta?.timestamp || pendingLiveData?.timestamp || null);
+  if(nextMs && pendingMs && nextMs <= pendingMs) return;
+  LIVE_TRANSPORT.lastMessageMs = Date.now();
   pendingLiveData = nextData;
   if(pendingLiveFrame) return;
   pendingLiveFrame = window.requestAnimationFrame(() => {
@@ -2469,19 +2760,50 @@ function queueLiveUpdate(nextData){
   });
 }
 
+async function fetchLatestDashboardData(){
+  if (location.protocol === 'file:') return;
+  try {
+    const res = await fetch('/api/data', { cache: 'no-store' });
+    if (!res.ok) return;
+    const data = await res.json();
+    queueLiveUpdate(data);
+  } catch {}
+}
+
+function ensureLivePolling(){
+  if (livePollTimer || location.protocol === 'file:') return;
+  livePollTimer = window.setInterval(() => {
+    if (document.hidden) return;
+    if (Date.now() - (LIVE_TRANSPORT.lastMessageMs || 0) < 15000) return;
+    fetchLatestDashboardData();
+  }, 15000);
+}
+
 // === SSE: Live Updates from Server ===
 function connectSSE(){
   if (typeof EventSource === 'undefined') return;
   // Only connect if served from localhost (not file://)
   if (location.protocol === 'file:') return;
 
+  if (sseConnection) sseConnection.close();
   const es = new EventSource('/events');
+  sseConnection = es;
+  es.onopen = () => {
+    LIVE_TRANSPORT.lastMessageMs = Date.now();
+    if (liveReconnectTimer) {
+      clearTimeout(liveReconnectTimer);
+      liveReconnectTimer = null;
+    }
+  };
   es.onmessage = (e) => {
     try {
       const msg = JSON.parse(e.data);
       if (msg.type === 'update' && msg.data) {
         queueLiveUpdate(msg.data);
+      } else if (msg.type === 'connected') {
+        LIVE_TRANSPORT.lastMessageMs = Date.now();
       } else if (msg.type === 'sweep_start') {
+        LIVE_TRANSPORT.lastMessageMs = Date.now();
         const badge = document.querySelector('.alert-badge');
         if (badge) { badge.textContent = '扫描中...'; badge.style.borderColor = 'var(--accent)'; }
       }
@@ -2490,7 +2812,14 @@ function connectSSE(){
   es.onerror = () => {
     // Reconnect after 5s on error
     es.close();
-    setTimeout(connectSSE, 5000);
+    if (sseConnection === es) sseConnection = null;
+    if (!liveReconnectTimer) {
+      liveReconnectTimer = window.setTimeout(() => {
+        liveReconnectTimer = null;
+        fetchLatestDashboardData();
+        connectSSE();
+      }, 5000);
+    }
   };
 }
 
@@ -2501,8 +2830,10 @@ function init(){
   renderTopbar();renderLeftRail();renderLower();renderRight();
   renderGlossary();
   ensureDynamicClockTimer();
+  refreshPreciseClockNodes();
   refreshDynamicTimeNodes();
   initMap();
+  bindPageWheelLifecycle();
   if (!booted) { runBoot(); booted = true; }
   // Close popup on click outside markers
   document.getElementById('mapContainer').addEventListener('click',e=>{
@@ -2510,6 +2841,14 @@ function init(){
   });
   document.addEventListener('keydown',e=>{
     if(e.key === 'Escape') closeGlossary();
+  });
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) {
+      refreshPreciseClockNodes();
+      refreshDynamicTimeNodes();
+      fetchLatestDashboardData();
+      updatePageWheelDock();
+    }
   });
   syncResponsiveLayout(true);
 }
@@ -2522,9 +2861,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // Server mode: always fetch live data from API and connect SSE, even if stale inline D exists.
     fetch('/api/data')
       .then(r => r.json())
-      .then(data => { D = applyClientSideFallbacks(data); init(); connectSSE(); })
+      .then(data => { D = applyClientSideFallbacks(data); init(); connectSSE(); ensureLivePolling(); })
       .catch(() => {
-        if (D && D.meta) { D = applyClientSideFallbacks(D); init(); connectSSE(); }
+        if (D && D.meta) { D = applyClientSideFallbacks(D); init(); connectSSE(); ensureLivePolling(); }
       });
   } else if (hasInlineData) {
     // File mode: use inline data
