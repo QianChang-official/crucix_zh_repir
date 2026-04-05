@@ -247,6 +247,10 @@ function significanceScore(post) {
   return score;
 }
 
+function sortPostsByNewest(posts = []) {
+  return [...posts].sort((left, right) => new Date(right.date || 0) - new Date(left.date || 0));
+}
+
 // Group posts by topic based on the channel config
 function groupByTopic(allPosts, channelMeta) {
   const groups = {};
@@ -284,6 +288,7 @@ export async function briefing() {
           status: 'bot_api',
           totalMessages: botData.count,
           urgentPosts: urgent.slice(0, 10),
+          recentPosts: sortPostsByNewest(enriched).slice(0, 60),
           topPosts: top,
           note: 'Data from Bot API getUpdates. Bot must be added to channels to receive posts.',
         };
@@ -360,6 +365,7 @@ export async function briefing() {
     channelsReachable: channelSummaries.filter(c => c.reachable).length,
     totalPosts: allPosts.length,
     urgentPosts,
+    recentPosts: sortPostsByNewest(allPosts).slice(0, 60),
     byTopic: topicSummary,
     channels: channelSummaries,
     errors: errors.length > 0 ? errors : undefined,
