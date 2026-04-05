@@ -17,11 +17,11 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, '..');
 
 // === Helpers ===
-const cyrillic = /[\u0400-\u04FF]/;
-function isEnglish(text) {
-  if (!text) return false;
-  return !cyrillic.test(text.substring(0, 80));
-}
+const EVENT_STOPWORDS = new Set([
+  'the', 'and', 'with', 'from', 'that', 'this', 'have', 'has', 'into', 'after',
+  'over', 'under', 'about', 'against', 'their', 'they', 'been', 'were', 'says',
+  'said', 'will', 'would', 'could', 'should', 'just', 'latest', 'update', 'news'
+]);
 
 // === Geo-tagging keyword map ===
 const geoKeywords = {
@@ -104,6 +104,200 @@ function sanitizeExternalUrl(raw) {
   } catch {
     return undefined;
   }
+}
+
+function getTimeValue(value) {
+  if (value == null || value === '') return 0;
+  if (value instanceof Date) {
+    const time = value.getTime();
+    return Number.isFinite(time) ? time : 0;
+  }
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return Math.abs(value) < 1e11 ? value * 1000 : value;
+  }
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (!trimmed) return 0;
+    if (/^-?\d{10,16}$/.test(trimmed)) {
+      const numeric = Number(trimmed);
+      if (Number.isFinite(numeric)) {
+        return trimmed.length <= 10 ? numeric * 1000 : numeric;
+      }
+    }
+    const parsed = new Date(trimmed).getTime();
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+  const time = new Date(value).getTime();
+  return Number.isFinite(time) ? time : 0;
+}
+
+function sortByNewest(list, selector) {
+  return [...(list || [])].sort((left, right) => getTimeValue(selector(right)) - getTimeValue(selector(left)));
+}
+
+function sanitizeTelegramText(text) {
+  return String(text || '')
+    .replace(/https?:\/\/\S+/gi, ' ')
+    .replace(/t\.me\/\S+/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function isRenderableTelegramPost(text) {
+  const cleaned = sanitizeTelegramText(text).replace(/[\u{1F300}-\u{1FAFF}\u{1F1E0}-\u{1F1FF}]/gu, ' ').trim();
+  if (!cleaned) return false;
+  if (cleaned.length >= 24) return true;
+  return /[\p{L}\p{N}]{6,}/u.test(cleaned);
+}
+
+function buildEventKey(text) {
+  const cleaned = String(text || '')
+    .toLowerCase()
+    .replace(/https?:\/\/\S+/gi, ' ')
+    .replace(/t\.me\/\S+/gi, ' ')
+    .replace(/[\u{1F300}-\u{1FAFF}\u{1F1E0}-\u{1F1FF}]/gu, ' ')
+    .replace(/[^\p{L}\p{N}\s]/gu, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (!cleaned) return '';
+
+  const tokens = cleaned
+    .split(' ')
+    .filter(token => token.length > 2 && !EVENT_STOPWORDS.has(token));
+
+  if (tokens.length >= 5) return tokens.slice(0, 12).join(' ');
+  return cleaned.slice(0, 96);
+}
+
+function dedupeTelegramPosts(posts = []) {
+  const merged = new Map();
+
+  for (const post of posts) {
+    const text = sanitizeTelegramText(post.text);
+    if (!isRenderableTelegramPost(text)) continue;
+
+    const key = buildEventKey(text) || `${post.channel || 'tg'}|${text.slice(0, 96)}`;
+    const existing = merged.get(key);
+    const candidateTime = getTimeValue(post.date);
+
+    if (!existing) {
+      merged.set(key, {
+        channel: post.channel || '',
+        text: text.substring(0, 220),
+        views: post.views || 0,
+        date: post.date || null,
+        urgentFlags: [...new Set(post.urgentFlags || [])],
+      });
+      continue;
+    }
+
+    const existingTime = getTimeValue(existing.date);
+    if (!existingTime || (candidateTime && candidateTime < existingTime)) {
+      existing.date = post.date || existing.date;
+      existing.channel = post.channel || existing.channel;
+    }
+    if (text.length > (existing.text || '').length) {
+      existing.text = text.substring(0, 220);
+    }
+    existing.views = Math.max(existing.views || 0, post.views || 0);
+    existing.urgentFlags = [...new Set([...(existing.urgentFlags || []), ...(post.urgentFlags || [])])];
+  }
+
+  return sortByNewest([...merged.values()], item => item.date);
+}
+
+function mergeFeedItemsByEvent(feed = []) {
+  const merged = new Map();
+
+  for (const item of feed) {
+    const key = buildEventKey(item.headline) || `${item.type || 'item'}|${String(item.headline || '').slice(0, 96)}`;
+    const existing = merged.get(key);
+    const candidateTime = getTimeValue(item.timestamp);
+
+    if (!existing) {
+      merged.set(key, { ...item });
+      continue;
+    }
+
+    const existingTime = getTimeValue(existing.timestamp);
+    if (!existingTime || (candidateTime && candidateTime < existingTime)) {
+      existing.timestamp = item.timestamp || existing.timestamp;
+      existing.source = item.source || existing.source;
+    }
+    if ((item.headline || '').length > (existing.headline || '').length) {
+      existing.headline = item.headline;
+    }
+    if (item.url && !existing.url) existing.url = item.url;
+    existing.urgent = existing.urgent || item.urgent;
+  }
+
+  return [...merged.values()];
+}
+
+function buildCrossSourceSignals(data, { tgUrgent = [], whoItems = [], markets = {} } = {}) {
+  const osintSignals = [];
+  if (tgUrgent.length > 0) {
+    osintSignals.push(`OSINT SURGE: ${tgUrgent.length} urgent Telegram posts detected in the latest sweep`);
+    for (const post of tgUrgent.slice(0, 2)) {
+      const text = sanitizeTelegramText(post.text);
+      if (text) osintSignals.push(`OSINT FLASH: ${text.substring(0, 120)}`);
+    }
+  }
+
+  for (const item of whoItems.slice(0, 2)) {
+    if (item?.title) osintSignals.push(`WHO WATCH: ${item.title}`);
+  }
+
+  const marketSignals = [];
+  for (const quote of [...(markets.asia || []), ...(markets.china || [])]) {
+    if (quote?.changePct == null) continue;
+    const change = Number(quote.changePct);
+    const threshold = quote.symbol?.startsWith('^') || /\.SS$|\.SZ$/.test(quote.symbol || '') ? 1.2 : 2;
+    if (Math.abs(change) < threshold) continue;
+    marketSignals.push(`MARKET MOVE: ${quote.name || quote.symbol} ${change >= 0 ? '+' : ''}${change}%`);
+  }
+
+  const cyberSignals = [
+    ...(data.sources['CISA-KEV']?.signals || []),
+    ...(data.sources.NVD?.signals || []),
+    ...(data.sources['Cloudflare-Radar']?.signals || []),
+  ];
+  const disasterSignals = [
+    ...(data.sources.FIRMS?.signals || []),
+    ...(data.sources['USGS-Earthquakes']?.signals || []),
+    ...(data.sources['NASA-EONET']?.signals || []),
+    ...(data.sources.Safecast?.signals || []),
+  ];
+  const macroSignals = [
+    ...(data.sources.WorldBank?.signals || []),
+    ...(data.sources.EIA?.signals || []),
+    ...(data.sources.FRED?.signals || []),
+    ...(data.sources.BLS?.signals || []),
+    ...(data.sources.Treasury?.signals || []),
+    ...(data.sources.Comtrade?.signals || []),
+    ...(data.sources['Hot-News']?.signals || []),
+  ];
+  const spaceSignals = [
+    ...(data.sources.Space?.signals || []),
+    ...(data.sources['Launch-Library']?.signals || []),
+    ...(data.sources['Spaceflight-News']?.signals || []),
+  ];
+  const infrastructureSignals = [
+    ...(data.sources.KiwiSDR?.signals || []),
+    ...(data.sources['ADS-B']?.signals || []),
+    ...(data.sources.EPA?.signals || []),
+    ...(data.sources.Flightera?.signals || []),
+  ];
+
+  return normalizeSignalList([
+    ...osintSignals,
+    ...marketSignals,
+    ...cyberSignals,
+    ...disasterSignals,
+    ...macroSignals,
+    ...spaceSignals,
+    ...infrastructureSignals,
+  ]).slice(0, 18);
 }
 
 function normalizeSignalList(list = []) {
@@ -212,13 +406,524 @@ async function fetchRSS(url, source) {
   }
 }
 
+const CHINA_NEWS_BROWSER_HEADERS = {
+  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36',
+  'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
+  'Cache-Control': 'no-cache',
+};
+
+const CHINA_NEWS_SOURCE_FALLBACKS = {
+  'China News': { lat: 39.9042, lon: 116.4074, region: 'China' },
+  'People CN': { lat: 39.9042, lon: 116.4074, region: 'Beijing' },
+  'Xinhua': { lat: 39.9042, lon: 116.4074, region: 'Beijing' },
+  'CCTV China': { lat: 39.9042, lon: 116.4074, region: 'Beijing' },
+  'Sina China': { lat: 31.2304, lon: 121.4737, region: 'Shanghai' },
+  'CLS Hot': { lat: 31.2304, lon: 121.4737, region: 'Shanghai' },
+  'Sina Finance Hot': { lat: 31.2304, lon: 121.4737, region: 'Shanghai' },
+  'Eastmoney Hot': { lat: 31.2304, lon: 121.4737, region: 'China' },
+  'Xueqiu Hot': { lat: 22.5431, lon: 114.0579, region: 'Shenzhen' },
+};
+
+const CHINA_NEWS_SOURCES = [
+  { type: 'rss', url: 'https://www.chinanews.com.cn/rss/china.xml', source: 'China News', limit: 18, kind: 'wire' },
+  { type: 'rss', url: 'https://www.people.com.cn/rss/politics.xml', source: 'People CN', limit: 18, kind: 'wire' },
+  { type: 'json', url: 'https://feed.mix.sina.com.cn/api/roll/get?pageid=153&lid=2510&num=18&page=1', source: 'Sina China', limit: 18, kind: 'portal' },
+  {
+    type: 'html',
+    url: 'https://www.news.cn/politics/',
+    source: 'Xinhua',
+    limit: 18,
+    kind: 'state',
+    urlPattern: /https?:\/\/www\.news\.cn\/(?:politics|local|fortune|comments|legal|world)\/\d{8}\/[a-z0-9]+\/c\.html(?:\?.*)?$/i,
+  },
+  {
+    type: 'html',
+    url: 'https://news.cctv.com/china/',
+    source: 'CCTV China',
+    limit: 18,
+    kind: 'state',
+    urlPattern: /https?:\/\/news\.cctv\.com\/\d{4}\/\d{2}\/\d{2}\/[A-Z0-9]+\.shtml(?:\?.*)?$/i,
+  },
+];
+
+const CHINA_NEWS_POSITIVE_HINTS = [
+  '上涨', '增', '增长', '扩大', '启动', '开通', '恢复', '落地', '通过', '突破', '创', '提振',
+  'rise', 'surge', 'boost', 'resume', 'open', 'approve', 'launch', 'expand', 'stronger'
+];
+const CHINA_NEWS_NEGATIVE_HINTS = [
+  '下跌', '降', '下降', '减少', '收紧', '暂停', '中断', '取消', '关闭', '受阻', '袭击', '爆炸', '封锁',
+  'fall', 'drop', 'cut', 'halt', 'pause', 'close', 'attack', 'blast', 'blockade', 'weaker'
+];
+const CHINA_NEWS_DENY_HINTS = ['辟谣', '否认', '不实', '并未', '未发生', '假消息', 'deny', 'denies', 'false', 'refute', 'debunk'];
+const CHINA_NEWS_CONFIRM_HINTS = ['确认', '证实', '通报', 'confirmed', 'confirm', 'verified', 'official'];
+
+async function fetchTextWithTimeout(url, timeout = 10000, headers = {}) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeout);
+  try {
+    const res = await fetch(url, {
+      signal: controller.signal,
+      headers: {
+        'User-Agent': 'Crucix/1.0',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        ...headers,
+      },
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.text();
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+function decodeHtmlEntities(text = '') {
+  return String(text)
+    .replace(/<!\[CDATA\[|\]\]>/g, '')
+    .replace(/&#(\d+);/g, (_, value) => String.fromCharCode(Number(value)))
+    .replace(/&#x([0-9a-f]+);/gi, (_, value) => String.fromCharCode(parseInt(value, 16)))
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&quot;/gi, '"')
+    .replace(/&apos;/gi, "'")
+    .replace(/&#39;/gi, "'")
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>');
+}
+
+function stripHtml(text = '') {
+  return decodeHtmlEntities(
+    String(text)
+      .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+      .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+      .replace(/<[^>]+>/g, ' ')
+  ).replace(/\s+/g, ' ').trim();
+}
+
+function makeAbsoluteHttpUrl(raw, baseUrl) {
+  if (!raw) return undefined;
+  const direct = sanitizeExternalUrl(raw);
+  if (direct) return direct;
+  try {
+    return sanitizeExternalUrl(new URL(raw, baseUrl).toString());
+  } catch {
+    return undefined;
+  }
+}
+
+function inferPublishedAt(value, url, fetchedAt = new Date().toISOString()) {
+  const direct = getTimeValue(value);
+  if (direct) return new Date(direct).toISOString();
+
+  let match = String(url || '').match(/\/(20\d{2})(\d{2})(\d{2})\//);
+  if (match) {
+    return new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3]), 0, 0, 0)).toISOString();
+  }
+
+  match = String(url || '').match(/(\d{2})(\d{2})(\d{2})\.shtml(?:$|\?)/i);
+  if (match) {
+    const year = Number(`20${match[1]}`);
+    const month = Number(match[2]);
+    const day = Number(match[3]);
+    if (year >= 2020 && month >= 1 && month <= 12 && day >= 1 && day <= 31) {
+      return new Date(Date.UTC(year, month - 1, day, 0, 0, 0)).toISOString();
+    }
+  }
+
+  return new Date(getTimeValue(fetchedAt) || Date.now()).toISOString();
+}
+
+function isPlausibleNewsTitle(title) {
+  const text = stripHtml(title);
+  if (!text || text.length < 8 || text.length > 120) return false;
+  if (/^(首页|更多|专题|国内|国际|评论|视频|图片|直播|客户端|新华网|央视网|人民网|中国新闻网)$/u.test(text)) return false;
+  if (!/[\p{L}\p{N}]/u.test(text)) return false;
+  return true;
+}
+
+function normalizeChinaNewsItem(raw, options = {}) {
+  const title = stripHtml(raw?.title || raw?.headline || '');
+  if (!isPlausibleNewsTitle(title)) return null;
+
+  const source = options.source || raw?.source || 'China News';
+  const baseUrl = options.baseUrl || raw?.url || '';
+  const url = makeAbsoluteHttpUrl(raw?.url || raw?.link || raw?.mobileUrl, baseUrl) || null;
+  const summary = stripHtml(raw?.summary || raw?.content || raw?.description || raw?.intro || '');
+  const fallback = CHINA_NEWS_SOURCE_FALLBACKS[source] || CHINA_NEWS_SOURCE_FALLBACKS['China News'];
+  const geo = geoTagText(`${title} ${summary}`) || fallback;
+
+  return {
+    source,
+    title,
+    summary: summary.slice(0, 180),
+    url,
+    kind: options.kind || raw?.kind || 'news',
+    publishedAt: inferPublishedAt(raw?.publishedAt || raw?.date || raw?.time || raw?.ctime || raw?.mtime, url, options.fetchedAt),
+    lat: geo?.lat,
+    lon: geo?.lon,
+    region: geo?.region || 'China',
+  };
+}
+
+function parseHtmlAnchorFeed(html, definition, fetchedAt) {
+  const items = [];
+  const seen = new Set();
+  const anchorRegex = /<a\b[^>]*href=(['"])(.*?)\1[^>]*>([\s\S]*?)<\/a>/gi;
+  let match;
+
+  while ((match = anchorRegex.exec(html)) !== null) {
+    const url = makeAbsoluteHttpUrl(match[2], definition.url);
+    if (!url || !definition.urlPattern.test(url)) continue;
+    const title = stripHtml(match[3]);
+    if (!isPlausibleNewsTitle(title)) continue;
+
+    const key = `${url}|${title}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+
+    const item = normalizeChinaNewsItem({ title, url }, {
+      source: definition.source,
+      baseUrl: definition.url,
+      kind: definition.kind,
+      fetchedAt,
+    });
+    if (!item) continue;
+
+    items.push(item);
+    if (items.length >= definition.limit) break;
+  }
+
+  return items;
+}
+
+async function fetchChinaNewsSource(definition) {
+  if (definition.type === 'rss') {
+    const items = await fetchRSS(definition.url, definition.source);
+    return sortByNewest(
+      items
+        .map(item => normalizeChinaNewsItem(item, {
+          source: definition.source,
+          baseUrl: definition.url,
+          kind: definition.kind,
+          fetchedAt: new Date().toISOString(),
+        }))
+        .filter(Boolean),
+      item => item.publishedAt
+    ).slice(0, definition.limit);
+  }
+
+  if (definition.type === 'json') {
+    const payload = await fetchJsonWithTimeout(definition.url, 10000, CHINA_NEWS_BROWSER_HEADERS);
+    const items = Array.isArray(payload?.result?.data)
+      ? payload.result.data.map(entry => normalizeChinaNewsItem({
+          title: entry.title,
+          summary: entry.intro || entry.summary,
+          url: entry.url || entry.wapurl,
+          publishedAt: entry.ctime || entry.mtime,
+        }, {
+          source: definition.source,
+          baseUrl: definition.url,
+          kind: definition.kind,
+          fetchedAt: payload?.result?.timestamp || new Date().toISOString(),
+        }))
+      : [];
+    return sortByNewest(items.filter(Boolean), item => item.publishedAt).slice(0, definition.limit);
+  }
+
+  const fetchedAt = new Date().toISOString();
+  const html = await fetchTextWithTimeout(definition.url, 12000, CHINA_NEWS_BROWSER_HEADERS);
+  return parseHtmlAnchorFeed(html, definition, fetchedAt);
+}
+
+function normalizeHotNewsItems(payload = {}) {
+  return sortByNewest(
+    (payload.items || [])
+      .map(item => normalizeChinaNewsItem({
+        title: item.title,
+        summary: item.content,
+        url: item.url,
+        publishedAt: item.publishedAt,
+      }, {
+        source: item.source || 'CLS Hot',
+        baseUrl: item.url || 'https://orz.ai/',
+        kind: 'finance-wire',
+        fetchedAt: payload.timestamp,
+      }))
+      .filter(Boolean),
+    item => item.publishedAt
+  );
+}
+
+function mergeChinaNewsItems(items = []) {
+  const merged = new Map();
+  for (const item of sortByNewest(items, entry => entry.publishedAt)) {
+    const normalizedTitle = buildEventKey(item.title) || item.title.toLowerCase();
+    const key = item.url || `${item.source}|${normalizedTitle}`;
+    if (!merged.has(key)) {
+      merged.set(key, item);
+      continue;
+    }
+
+    const existing = merged.get(key);
+    if ((item.summary || '').length > (existing.summary || '').length) existing.summary = item.summary;
+    if (!existing.url && item.url) existing.url = item.url;
+    if (getTimeValue(item.publishedAt) > getTimeValue(existing.publishedAt)) existing.publishedAt = item.publishedAt;
+  }
+  return sortByNewest([...merged.values()], entry => entry.publishedAt);
+}
+
+function normalizeHeadlineForSimilarity(title) {
+  return String(title || '')
+    .toLowerCase()
+    .replace(/【[^】]{1,20}】/g, ' ')
+    .replace(/\[[^\]]{1,20}\]/g, ' ')
+    .replace(/[“”"'《》<>（）()【】\[\]{}:：,，.。!！?？、|]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/[^\p{L}\p{N}]/gu, '');
+}
+
+function buildHeadlineSignature(title) {
+  const normalized = normalizeHeadlineForSimilarity(title);
+  const grams = new Set();
+  for (let index = 0; index < Math.max(0, normalized.length - 1); index += 1) {
+    grams.add(normalized.slice(index, index + 2));
+  }
+  return { normalized, grams };
+}
+
+function headlineSimilarity(left, right) {
+  if (!left?.normalized || !right?.normalized) return 0;
+  if (left.normalized === right.normalized) return 1;
+  if (
+    left.normalized.length >= 10 &&
+    right.normalized.length >= 10 &&
+    (left.normalized.includes(right.normalized) || right.normalized.includes(left.normalized))
+  ) {
+    return 0.86;
+  }
+
+  let overlap = 0;
+  for (const gram of left.grams) {
+    if (right.grams.has(gram)) overlap += 1;
+  }
+  const union = left.grams.size + right.grams.size - overlap;
+  return union > 0 ? overlap / union : 0;
+}
+
+function detectHeadlineStance(text) {
+  const value = String(text || '');
+  if (!value) return 'neutral';
+  if (CHINA_NEWS_DENY_HINTS.some(keyword => value.includes(keyword))) return 'deny';
+
+  let positive = 0;
+  let negative = 0;
+  for (const keyword of CHINA_NEWS_POSITIVE_HINTS) {
+    if (value.includes(keyword)) positive += 1;
+  }
+  for (const keyword of CHINA_NEWS_NEGATIVE_HINTS) {
+    if (value.includes(keyword)) negative += 1;
+  }
+  if (positive > negative && positive > 0) return 'up';
+  if (negative > positive && negative > 0) return 'down';
+  if (CHINA_NEWS_CONFIRM_HINTS.some(keyword => value.includes(keyword))) return 'confirm';
+  return 'neutral';
+}
+
+function describeClusterConflict(stances) {
+  if (stances.includes('deny') && stances.some(stance => stance !== 'deny')) {
+    return 'same topic shows denial versus confirmation/escalation wording';
+  }
+  if (stances.includes('up') && stances.includes('down')) {
+    return 'same topic mixes positive versus negative direction wording';
+  }
+  return 'same topic shows divergent wording';
+}
+
+function getFreshnessBucket(timestamp) {
+  const ageMinutes = Math.max(0, Math.floor((Date.now() - getTimeValue(timestamp)) / 60000));
+  if (ageMinutes <= 20) return 'realtime';
+  if (ageMinutes <= 120) return 'flash';
+  if (ageMinutes <= 720) return 'follow';
+  return 'background';
+}
+
+function buildChinaNewsClusters(items = []) {
+  const clusters = [];
+  for (const item of sortByNewest(items, entry => entry.publishedAt)) {
+    const signature = buildHeadlineSignature(item.title);
+    const enriched = {
+      ...item,
+      signature,
+      stance: detectHeadlineStance(`${item.title} ${item.summary}`),
+    };
+
+    let bestCluster = null;
+    let bestScore = 0;
+    for (const cluster of clusters) {
+      const score = headlineSimilarity(signature, cluster.signature);
+      if (score > bestScore) {
+        bestScore = score;
+        bestCluster = cluster;
+      }
+    }
+
+    if (bestCluster && bestScore >= 0.38) {
+      bestCluster.items.push(enriched);
+      if ((item.summary || '').length > (bestCluster.summary || '').length) bestCluster.summary = item.summary;
+      if (getTimeValue(item.publishedAt) > getTimeValue(bestCluster.latestAt)) {
+        bestCluster.latestAt = item.publishedAt;
+        bestCluster.headline = item.title;
+        bestCluster.leadUrl = item.url;
+        bestCluster.signature = signature;
+      }
+      if (getTimeValue(item.publishedAt) < getTimeValue(bestCluster.firstSeen)) {
+        bestCluster.firstSeen = item.publishedAt;
+      }
+      continue;
+    }
+
+    clusters.push({
+      id: `cn-${clusters.length + 1}`,
+      headline: item.title,
+      summary: item.summary,
+      latestAt: item.publishedAt,
+      firstSeen: item.publishedAt,
+      leadUrl: item.url,
+      signature,
+      items: [enriched],
+    });
+  }
+
+  return sortByNewest(clusters.map(cluster => {
+    const itemsSorted = sortByNewest(cluster.items, entry => entry.publishedAt);
+    const sources = [...new Set(itemsSorted.map(entry => entry.source))];
+    const stances = [...new Set(itemsSorted.map(entry => entry.stance).filter(stance => stance && stance !== 'neutral'))];
+    const conflict = (
+      (stances.includes('deny') && stances.some(stance => stance !== 'deny')) ||
+      (stances.includes('up') && stances.includes('down'))
+    );
+
+    return {
+      id: cluster.id,
+      headline: cluster.headline,
+      summary: cluster.summary,
+      latestAt: cluster.latestAt,
+      firstSeen: cluster.firstSeen,
+      leadUrl: cluster.leadUrl,
+      itemCount: itemsSorted.length,
+      sourceCount: sources.length,
+      sources,
+      freshness: getFreshnessBucket(cluster.latestAt),
+      conflict,
+      conflictReason: conflict ? describeClusterConflict(stances) : '',
+      items: itemsSorted.slice(0, 6).map(entry => ({
+        source: entry.source,
+        title: entry.title,
+        summary: entry.summary,
+        url: entry.url,
+        publishedAt: entry.publishedAt,
+        freshness: getFreshnessBucket(entry.publishedAt),
+      })),
+    };
+  }), cluster => cluster.latestAt);
+}
+
+function buildChinaNewsFlow(items = [], clusters = []) {
+  const now = Date.now();
+  const sourceCounts = new Map();
+  const buckets = Array.from({ length: 12 }, (_, index) => ({
+    label: `${11 - index}h`,
+    count: 0,
+  }));
+
+  for (const item of items) {
+    const current = sourceCounts.get(item.source) || {
+      source: item.source,
+      count: 0,
+      realtimeCount: 0,
+      latestAt: item.publishedAt,
+    };
+    current.count += 1;
+    if (getFreshnessBucket(item.publishedAt) !== 'background') current.realtimeCount += 1;
+    if (getTimeValue(item.publishedAt) > getTimeValue(current.latestAt)) current.latestAt = item.publishedAt;
+    sourceCounts.set(item.source, current);
+
+    const ageHours = Math.floor((now - getTimeValue(item.publishedAt)) / 3600000);
+    if (ageHours >= 0 && ageHours < 12) {
+      buckets[11 - ageHours].count += 1;
+    }
+  }
+
+  const freshness = [15, 60, 180, 720].map(limit => ({
+    label: `${limit}m`,
+    count: items.filter(item => (now - getTimeValue(item.publishedAt)) <= limit * 60000).length,
+  }));
+
+  return {
+    sourceCounts: sortByNewest([...sourceCounts.values()], entry => entry.latestAt),
+    buckets,
+    freshness,
+    multiSourceClusters: clusters.filter(cluster => cluster.sourceCount > 1).length,
+    conflictClusters: clusters.filter(cluster => cluster.conflict).length,
+  };
+}
+
+async function fetchChinaNewsBundle(hotNewsPayload = {}) {
+  const results = await Promise.allSettled(CHINA_NEWS_SOURCES.map(fetchChinaNewsSource));
+  const directItems = results
+    .filter(result => result.status === 'fulfilled')
+    .flatMap(result => result.value || []);
+  const hotNewsItems = normalizeHotNewsItems(hotNewsPayload).slice(0, 24);
+  const items = mergeChinaNewsItems([...directItems, ...hotNewsItems]).slice(0, 120);
+  const clusters = buildChinaNewsClusters(items).slice(0, 80);
+  const flow = buildChinaNewsFlow(items, clusters);
+
+  const summary = {
+    totalItems: items.length,
+    sourceCount: new Set(items.map(item => item.source)).size,
+    realtimeCount: items.filter(item => getFreshnessBucket(item.publishedAt) !== 'background').length,
+    multiSourceCount: clusters.filter(cluster => cluster.sourceCount > 1).length,
+    conflictCount: clusters.filter(cluster => cluster.conflict).length,
+    hotWireCount: hotNewsItems.length,
+  };
+
+  const signals = [];
+  if (summary.realtimeCount >= 8) {
+    signals.push(`CHINA NEWS FLOW: ${summary.realtimeCount} items updated within 12h across ${summary.sourceCount} domestic sources`);
+  }
+  if (summary.multiSourceCount >= 3) {
+    signals.push(`CHINA NEWS CONSENSUS: ${summary.multiSourceCount} same-topic clusters confirmed by multiple mainland sources`);
+  }
+  if (summary.conflictCount > 0) {
+    signals.push(`CHINA NEWS CONFLICT: ${summary.conflictCount} clusters show conflicting or denial-versus-confirmation wording`);
+  }
+
+  return {
+    items,
+    clusters,
+    flow,
+    summary,
+    signals,
+    mapItems: items.filter(item => item.lat != null && item.lon != null).slice(0, 24).map(item => ({
+      title: item.title,
+      source: item.source,
+      date: item.publishedAt,
+      url: item.url,
+      lat: item.lat,
+      lon: item.lon,
+      region: item.region,
+    })),
+  };
+}
+
 const RSS_SOURCE_FALLBACKS = {
   'SBS Australia': { lat: -35.2809, lon: 149.13, region: 'Australia' },
   'Indian Express': { lat: 28.6139, lon: 77.209, region: 'India' },
   'The Hindu': { lat: 13.0827, lon: 80.2707, region: 'India' },
   'MercoPress': { lat: -34.9011, lon: -56.1645, region: 'South America' },
   'CLS Telegraph': { lat: 31.2304, lon: 121.4737, region: 'China' },
-  'WallStreetCN Live': { lat: 31.2304, lon: 121.4737, region: 'China' }
+  'WallStreetCN Live': { lat: 31.2304, lon: 121.4737, region: 'China' },
+  ...CHINA_NEWS_SOURCE_FALLBACKS,
 };
 const REGIONAL_NEWS_SOURCES = ['MercoPress', 'Indian Express', 'The Hindu', 'SBS Australia'];
 const NEWSNOW_REALTIME_SOURCES = [
@@ -252,7 +957,7 @@ async function fetchNewsNowRealtime() {
     .flatMap(result => result.value);
 }
 
-export async function fetchAllNews() {
+export async function fetchAllNews(extraNews = []) {
   const feeds = [
     // Global
     ['http://feeds.bbci.co.uk/news/world/rss.xml', 'BBC'],
@@ -290,7 +995,8 @@ export async function fetchAllNews() {
   const allNews = results
     .filter(r => r.status === 'fulfilled')
     .flatMap(r => r.value)
-    .concat(realtimeWireNews || []);
+    .concat(realtimeWireNews || [])
+    .concat(extraNews || []);
 
   // De-duplicate and geo-tag
   const seen = new Set();
@@ -299,7 +1005,9 @@ export async function fetchAllNews() {
     const key = item.title.substring(0, 40).toLowerCase();
     if (seen.has(key)) continue;
     seen.add(key);
-    const geo = geoTagText(item.title) || RSS_SOURCE_FALLBACKS[item.source];
+    const geo = (item.lat != null && item.lon != null)
+      ? { lat: item.lat, lon: item.lon, region: item.region || 'Global' }
+      : (geoTagText(item.title) || RSS_SOURCE_FALLBACKS[item.source]);
     if (geo) {
       geoNews.push({
         title: item.title.substring(0, 100),
@@ -315,7 +1023,7 @@ export async function fetchAllNews() {
 
   const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
   const filtered = geoNews.filter(n => !n.date || new Date(n.date) >= cutoff);
-  filtered.sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
+  filtered.sort((a, b) => getTimeValue(b.date) - getTimeValue(a.date));
 
   const selected = [];
   const selectedKeys = new Set();
@@ -327,12 +1035,8 @@ export async function fetchAllNews() {
     selectedKeys.add(key);
   };
 
-  // Reserve a little space so newly-added regional feeds are not crowded out by larger globals.
-  for (const source of [...REGIONAL_NEWS_SOURCES, ...NEWSNOW_REALTIME_SOURCES.map(item => item.source)]) {
-    filtered.filter(item => item.source === source).slice(0, 2).forEach(pushUnique);
-  }
   filtered.forEach(pushUnique);
-  return selected.slice(0, 50);
+  return selected.slice(0, 80);
 }
 
 // === Leverageable Ideas from Signals ===
@@ -489,7 +1193,6 @@ export async function synthesize(data) {
     hc: h.highConfidence || 0,
     fires: (h.highIntensity || []).slice(0, 8).map(f => ({ lat: f.lat, lon: f.lon, frp: f.frp || 0 }))
   }));
-  const tSignals = normalizeSignalList(data.sources.FIRMS?.signals || []);
   const chokepoints = Object.values(data.sources.Maritime?.chokepoints || {}).map(c => ({
     label: c.label || c.name, note: c.note || '', lat: c.lat || 0, lon: c.lon || 0
   }));
@@ -505,15 +1208,27 @@ export async function synthesize(data) {
     receivers: (z.receivers || []).slice(0, 5).map(r => ({ name: r.name || '', lat: r.lat || 0, lon: r.lon || 0 }))
   }));
   const tgData = data.sources.Telegram || {};
-  const tgUrgent = (tgData.urgentPosts || []).filter(p => isEnglish(p.text)).map(p => ({
-    channel: p.channel, text: p.text?.substring(0, 200), views: p.views, date: p.date, urgentFlags: p.urgentFlags || []
-  }));
-  const tgTop = (tgData.topPosts || []).filter(p => isEnglish(p.text)).map(p => ({
-    channel: p.channel, text: p.text?.substring(0, 200), views: p.views, date: p.date, urgentFlags: []
-  }));
-  const who = (data.sources.WHO?.diseaseOutbreakNews || []).slice(0, 10).map(w => ({
-    title: w.title?.substring(0, 120), date: w.date, summary: w.summary?.substring(0, 150)
-  }));
+  const tgUrgent = dedupeTelegramPosts((tgData.urgentPosts || []).map(p => ({
+    channel: p.channel,
+    text: p.text,
+    views: p.views,
+    date: p.date,
+    urgentFlags: p.urgentFlags || []
+  })));
+  const urgentKeys = new Set(tgUrgent.map(post => buildEventKey(post.text)));
+  const tgTop = dedupeTelegramPosts((tgData.topPosts || []).map(p => ({
+    channel: p.channel,
+    text: p.text,
+    views: p.views,
+    date: p.date,
+    urgentFlags: []
+  }))).filter(post => !urgentKeys.has(buildEventKey(post.text)));
+  const who = sortByNewest(
+    (data.sources.WHO?.diseaseOutbreakNews || []).map(w => ({
+      title: w.title?.substring(0, 120), date: w.date, summary: w.summary?.substring(0, 150)
+    })),
+    item => item.date
+  ).slice(0, 10);
   const fred = (data.sources.FRED?.indicators || []).map(f => ({
     id: f.id, label: f.label, value: f.value, date: f.date,
     recent: f.recent || [],
@@ -569,7 +1284,7 @@ export async function synthesize(data) {
       region: region.region,
       count: region.count,
     })),
-    earthquakes: (usgsData.earthquakes || []).slice(0, 15).map(quake => ({
+    earthquakes: sortByNewest(usgsData.earthquakes || [], quake => quake.time).slice(0, 15).map(quake => ({
       id: quake.id,
       magnitude: quake.magnitude,
       place: quake.place,
@@ -585,7 +1300,7 @@ export async function synthesize(data) {
     })),
     openEvents: eonetData.openEvents || 0,
     categories: eonetData.categories || {},
-    events: (eonetData.events || []).slice(0, 15).map(event => ({
+    events: sortByNewest(eonetData.events || [], event => event.date).slice(0, 15).map(event => ({
       id: event.id,
       title: event.title,
       category: event.category,
@@ -639,6 +1354,17 @@ export async function synthesize(data) {
     })),
     signals: normalizeSignalList(worldBankData.signals || []),
   };
+  const hotNewsData = data.sources['Hot-News'] || {};
+  const aviationData = data.sources.Flightera || {};
+  const aviation = {
+    configured: Boolean(aviationData.configured),
+    airports: aviationData.airports || [],
+    stats: [...(aviationData.stats || [])]
+      .sort((left, right) => (right.delayedPercent || 0) - (left.delayedPercent || 0))
+      .slice(0, 8),
+    note: aviationData.note || '',
+    signals: normalizeSignalList(aviationData.signals || []),
+  };
 
   // Space/CelesTrak satellite data
   const spaceData = data.sources.Space || {};
@@ -664,7 +1390,7 @@ export async function synthesize(data) {
   const issAltitudeKm = Number.isFinite(spaceData.iss?.apogee) && Number.isFinite(spaceData.iss?.perigee)
     ? (spaceData.iss.apogee + spaceData.iss.perigee) / 2
     : null;
-  const spaceHeadlines = (spaceNewsData.articles || []).slice(0, 6).map(article => ({
+  const spaceHeadlines = sortByNewest(spaceNewsData.articles || [], article => article.publishedAt).slice(0, 6).map(article => ({
     title: article.title,
     source: article.source,
     publishedAt: article.publishedAt,
@@ -762,7 +1488,7 @@ export async function synthesize(data) {
       kevRecent: cisaKevData.summary?.recentAdditions || 0,
       kevRansomware: cisaKevData.summary?.ransomwareLinked || 0,
     },
-    recentCves: (nvdData.vulnerabilities || []).slice(0, 8).map(vulnerability => ({
+    recentCves: sortByNewest(nvdData.vulnerabilities || [], vulnerability => vulnerability.published).slice(0, 8).map(vulnerability => ({
       id: vulnerability.id,
       severity: vulnerability.severity,
       score: vulnerability.score,
@@ -770,7 +1496,7 @@ export async function synthesize(data) {
       summary: vulnerability.summary,
       url: vulnerability.url,
     })),
-    kevRecent: (cisaKevData.vulnerabilities || []).slice(0, 6).map(vulnerability => ({
+    kevRecent: sortByNewest(cisaKevData.vulnerabilities || [], vulnerability => vulnerability.dateAdded).slice(0, 6).map(vulnerability => ({
       id: vulnerability.cveID,
       vendor: vulnerability.vendorProject,
       product: vulnerability.product,
@@ -781,15 +1507,19 @@ export async function synthesize(data) {
     signals: normalizeSignalList([...(cisaKevData.signals || []), ...(nvdData.signals || [])]).slice(0, 8),
   };
 
-  const health = Object.entries(data.sources).map(([name, src]) => ({
-    n: name, err: Boolean(src.error), stale: Boolean(src.stale)
-  }));
-
   // === Yahoo Finance live market data ===
   const yfData = data.sources.YFinance || {};
   const yfQuotes = yfData.quotes || {};
   const markets = {
     indexes: (yfData.indexes || []).map(q => ({
+      symbol: q.symbol, name: q.name, price: q.price,
+      change: q.change, changePct: q.changePct, history: q.history || []
+    })),
+    asia: (yfData.asia || []).map(q => ({
+      symbol: q.symbol, name: q.name, price: q.price,
+      change: q.change, changePct: q.changePct, history: q.history || []
+    })),
+    china: (yfData.china || []).map(q => ({
       symbol: q.symbol, name: q.name, price: q.price,
       change: q.change, changePct: q.changePct, history: q.history || []
     })),
@@ -811,7 +1541,31 @@ export async function synthesize(data) {
       changePct: yfQuotes['^VIX'].changePct,
     } : null,
     timestamp: yfData.summary?.timestamp || null,
+    chinaMarketSession: Boolean(yfData.summary?.chinaMarketSession),
+    chinaCacheAgeMs: yfData.summary?.chinaCacheAgeMs || 0,
   };
+
+  const hasAirFallback = sumAirHotspots(effectiveAirHotspots) > 0;
+  const hasFredFallback = fred.length > 0 || (yfData.summary?.ok || 0) > 0;
+  const hasEiaFallback = Boolean(yfQuotes['CL=F']?.price || yfQuotes['BZ=F']?.price || yfQuotes['NG=F']?.price);
+  const health = Object.entries(data.sources).map(([name, src]) => {
+    const degradedButUsable =
+      (name === 'OpenSky' && Boolean(src.error) && hasAirFallback) ||
+      (name === 'FRED' && Boolean(src.error) && hasFredFallback) ||
+      (name === 'EIA' && Boolean(src.error) && hasEiaFallback);
+
+    return {
+      n: name,
+      err: Boolean(src.error) && !degradedButUsable,
+      stale: Boolean(src.stale || degradedButUsable)
+    };
+  });
+
+  const tSignals = buildCrossSourceSignals(data, {
+    tgUrgent,
+    whoItems: who,
+    markets,
+  });
 
   const yfGold = yfQuotes['GC=F'];
   const yfSilver = yfQuotes['SI=F'];
@@ -835,8 +1589,8 @@ export async function synthesize(data) {
   if (yfNatgas?.price) energy.natgas = yfNatgas.price;
   if (yfWti?.history?.length) energy.wtiRecent = yfWti.history.map(h => h.close);
 
-  // Fetch RSS
-  const news = await fetchAllNews();
+  const chinaNews = await fetchChinaNewsBundle(hotNewsData);
+  const news = await fetchAllNews(chinaNews.mapItems);
 
   const V2 = {
     meta: data.crucix, air, thermal, tSignals, chokepoints, nuke, nukeSignals,
@@ -851,17 +1605,19 @@ export async function synthesize(data) {
     sdr: { total: sdrNet.totalReceivers || 0, online: sdrNet.online || 0, zones: sdrZones },
     tg: { posts: tgData.totalPosts || 0, urgent: tgUrgent, topPosts: tgTop },
     who, fred, energy, metals, bls, treasury, gscpi, defense, noaa, epa, disaster, world, cyber, acled, gdelt, space, health, news,
+    cnNews: chinaNews,
+    aviation,
     markets, // Live Yahoo Finance market data
     ideas: [], ideasSource: 'disabled',
     // newsFeed for ticker (merged RSS + GDELT + Telegram)
-    newsFeed: buildNewsFeed(news, gdeltData, tgUrgent, tgTop, spaceHeadlines),
+    newsFeed: buildNewsFeed(news, gdeltData, tgUrgent, tgTop, spaceHeadlines, hotNewsData.items || []),
   };
 
   return V2;
 }
 
 // === Unified News Feed for Ticker ===
-function buildNewsFeed(rssNews, gdeltData, tgUrgent, tgTop, spaceArticles = []) {
+function buildNewsFeed(rssNews, gdeltData, tgUrgent, tgTop, spaceArticles = [], hotNewsItems = []) {
   const feed = [];
 
   // RSS news
@@ -878,7 +1634,7 @@ function buildNewsFeed(rssNews, gdeltData, tgUrgent, tgTop, spaceArticles = []) 
       const geo = geoTagText(a.title);
       feed.push({
         headline: a.title.substring(0, 100), source: 'GDELT', type: 'gdelt',
-        timestamp: new Date().toISOString(), region: geo?.region || 'Global', urgent: false, url: sanitizeExternalUrl(a.url)
+        timestamp: a.date || gdeltData.timestamp || new Date().toISOString(), region: geo?.region || 'Global', urgent: false, url: sanitizeExternalUrl(a.url)
       });
     }
   }
@@ -894,6 +1650,19 @@ function buildNewsFeed(rssNews, gdeltData, tgUrgent, tgTop, spaceArticles = []) 
       region: 'Space',
       urgent: false,
       url: sanitizeExternalUrl(article.url),
+    });
+  }
+
+  for (const item of sortByNewest(hotNewsItems || [], entry => entry.publishedAt).slice(0, 12)) {
+    if (!item?.title) continue;
+    feed.push({
+      headline: item.title.substring(0, 100),
+      source: item.source || 'CLS Hot',
+      type: 'china-wire',
+      timestamp: item.publishedAt,
+      region: 'China',
+      urgent: /快讯|突发|盘中宝|风口研报|重磅|制裁|关税|油价|汇率/i.test(`${item.title} ${item.content || ''}`),
+      url: sanitizeExternalUrl(item.url),
     });
   }
 
@@ -917,8 +1686,8 @@ function buildNewsFeed(rssNews, gdeltData, tgUrgent, tgTop, spaceArticles = []) 
 
   // Filter to last 30 days, sort by timestamp descending, limit to 50
   const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-  const recent = feed.filter(item => !item.timestamp || new Date(item.timestamp) >= cutoff);
-  recent.sort((a, b) => new Date(b.timestamp || 0) - new Date(a.timestamp || 0));
+  const recent = mergeFeedItemsByEvent(feed).filter(item => !item.timestamp || getTimeValue(item.timestamp) >= cutoff.getTime());
+  recent.sort((a, b) => getTimeValue(b.timestamp) - getTimeValue(a.timestamp));
 
   const selected = [];
   const selectedKeys = new Set();
@@ -930,11 +1699,8 @@ function buildNewsFeed(rssNews, gdeltData, tgUrgent, tgTop, spaceArticles = []) 
     selectedKeys.add(key);
   };
 
-  for (const source of REGIONAL_NEWS_SOURCES) {
-    recent.filter(item => item.source === source).slice(0, 2).forEach(pushUnique);
-  }
   recent.forEach(pushUnique);
-  return selected.slice(0, 50);
+  return selected.slice(0, 120);
 }
 
 // === CLI Mode: inject into HTML file ===
