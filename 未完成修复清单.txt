@@ -1,0 +1,100 @@
+CRUCIX 未完成修复清单
+更新时间: 2026-04-05 第二轮修复
+
+=== 本轮新增修复（第二轮） ===
+
+7. 失效源识别与 UI 显示
+   - inject.mjs: V2 输出新增 sourceErrors 字段，将 briefing.mjs 的 data.errors 数组透传到前端。
+   - jarvis.html: 顶栏"源 33/38"改为可点击，点击弹出浮层列出所有失效源名称及错误原因。
+   - 新增函数: renderSourceErrorsPanel(), toggleSourceErrors()。
+
+8. CLS 电报前缀 + 链接修复
+   - buildChinaNewsCard: seriesChip 移到 tk-top 最前面，栏目标签优先显示。
+   - CLS 来源卡片自动追加 "电报页" 链接指向 https://www.cls.cn/telegraph。
+
+9. CLS 电报直接抓取器
+   - 新建 apis/sources/cls-telegraph.mjs，调用 cls.cn 内部 API。
+   - 主入口: /nodeapi/updateTelegraphList，备用: /v1/roll/get_roll_list。
+   - 已注册为第 39 个源（CLS-Telegraph），集成到 fetchChinaNewsBundle。
+
+10. 内容模块拆分为标签页导航
+    - 下方面板区改为 4 个标签: 新闻、市场、OSINT、观点。
+    - 标签状态通过 localStorage 持久化。
+    - 地图/左侧/顶栏/右侧保持常驻。
+
+11. SQLite 数据库持久化
+    - 新增 better-sqlite3 依赖，新建 lib/db.mjs。
+    - 表: sweep_runs, source_data, news_items, flight_cache, section_snapshots。
+    - 每次 sweep 自动持久化扫描数据、失效源、新闻、版块快照。
+    - 新增历史查询 API: /api/history/sweeps, /api/history/section/:name, /api/history/news。
+    - 启动时自动清理 30 天前数据。
+
+12. 航班数据每日缓存
+    - flightera.mjs: 每天首次查询缓存到 SQLite，同日后续 sweep 使用缓存。
+    - 次日自动刷新。
+
+13. 待确认/观察项
+    - npm install 后确认 better-sqlite3 编译通过。
+    - 验证 CLS nodeapi 端点可达性。
+    - 标签页切换在 SSE 更新后不跳回。
+    - 源计数变为 39: 确认各处一致。
+    - 航班缓存跨天切换是否正确。
+
+1. 本轮已落地的页面改动
+   - 实时更新链路已补强: 前端保留 SSE，同时增加 /api/data 轮询兜底。
+   - 实时覆盖规则已收紧: 只接受时间戳更新鲜的数据，避免旧 sweep 把新内容顶掉。
+   - 全球快讯流、中国新闻聚合、公开情报流都已改为固定高度自然滚动，旧的“滚轮翻页 / 上页 / 下页”文案已移除。
+   - 页面底部已加入导航条，放大或小屏时可辅助横向浏览。
+   - 顶部授时中心已改为毫秒级显示。
+   - 宏观与市场、可执行观点已改为内部滚动，主地图高度和整体占比已进一步压缩。
+   - 中国新闻卡片已接入栏目字段，CLS 类条目改为“财联社电报 + 栏目”口径，不再误写成“财联社热榜”。
+   - 可执行观点 LLM 未配置提示已更新，列出包括 copilot 在内的 10 种提供商。
+
+2. 本轮新增集成
+   - China Finance RSS Bridge (github.com/yuxuan-made/china-finance-rss)：
+     · 新增 apis/sources/cn-finance-rss.mjs，拉取东方财富 7×24 + 同花顺 7×24 快讯。
+     · 已注册至 briefing.mjs（第 38 个源），并集成到 inject.mjs 的 fetchChinaNewsBundle 聚合流。
+     · 需用户单独运行 python server.py 提供 RSS 服务，否则该源优雅降级。
+     · 环境变量: CN_FINANCE_RSS_URL（默认 http://localhost:8053）。
+   - Microsoft 365 Copilot / Azure OpenAI LLM 提供商：
+     · 新增 lib/llm/copilot.mjs，支持两种模式:
+       a) Azure OpenAI: AZURE_OPENAI_ENDPOINT + AZURE_OPENAI_KEY + AZURE_OPENAI_DEPLOYMENT
+       b) Microsoft Graph Copilot Chat API (preview): COPILOT_TENANT_ID + COPILOT_CLIENT_ID + COPILOT_CLIENT_SECRET
+     · 已注册至 lib/llm/index.mjs 工厂函数，LLM_PROVIDER=copilot 即可激活。
+     · 参考: https://learn.microsoft.com/zh-cn/microsoft-365/copilot/extensibility/copilot-apis-overview
+   - About 页面已更新：加入 China Finance RSS 和 Microsoft Copilot API 的说明卡片和引用链接。
+   - .env.example 已更新：补充了 Azure OpenAI / Copilot Graph / CN_FINANCE_RSS_URL 配置项。
+
+3. 空域源修复进度
+   - OpenSky 仍保留为主源。
+   - 已改为 Airplanes.live MIL 全局单次回退，不再按每个热点逐个 point 拉取，主要目的是压低 429 风险。
+   - 已验证: /api/data 中 airMeta.source 现为 OpenSky / Airplanes.live MIL，10 个战区都可进入 fallbackRegions。
+   - 已验证: 空域热点现在会附带代表样本，地图弹窗可直接看到 callsign / hex / 国家 / 高度。
+   - 当前限制: 本轮 liveTotal 仍偏低，说明 MIL 回退虽然更稳，但公开军机口径本身仍然偏稀，后面还要继续补其他空域源。
+
+3. 之前已确认完成且仍需盯住的项
+   - BLS 已切到 FRED CSV fallback，不再导致宏观面板空白。
+   - 中国市场监控已接入东方财富公开接口。
+   - A 股指数、异动样本、主力资金、北向/南向资金已上屏。
+   - 中国新闻首发优先、人民网日期误判、组/条统计口径都已修正。
+   - 地图缩放闪动已做分档更新与 repaint 隔离。
+   - Telegram recent / urgent 已恢复并扩容，但还要继续盯厚度和新鲜度。
+
+4. 本轮剩余待确认项
+   - 已验证: 页面源码中已不存在“滚轮翻页 / 上页 / 下页”旧文案，已切为自然滚动提示。
+   - 已验证: 运行时中国新闻样本已出现 leadSource = CLS Telegraph、leadSeries = 盘中宝、leadUrl = https://www.cls.cn/telegraph。
+   - 已验证: 毫秒授时与轮询兜底在长时间运行下是否带来额外卡顿。
+   - 继续观察: 自然滚动在实际小屏和浏览器缩放场景下，是否仍需要再调单卡高度或滚动惯性。
+   - 继续优化: Airplanes.live MIL 回退已全战区接上，但 liveTotal 仍偏少，还需要补更多备用空域源。
+   - 验证实时更新是否仍会出现“别人慢一拍的稿件覆盖最新稿件”的问题。
+
+5. 下一轮优先级
+   - 先看运行结果和源状态是否恢复正常。
+   - 再继续做数据增厚和排序质量提升。
+   - 若宏观区仍嫌长，再考虑拆成独立页，而不是继续把主页堆高。
+
+6. 每次继续修之前先看这份文件
+   - 先核对: 顶部源状态、空域面板是否 live、BLS fallback 是否正常、中文新闻“组/条”口径是否一致。
+   - 再决定: 优先补空域与实时链路，还是继续加厚数据面板和排序质量。
+
+每次修复前先看这份清单，确认当前状态和目标，避免重复修同一项或遗漏重要问题。修复完成后及时更新清单状态，保持信息同步。

@@ -8,6 +8,7 @@ apis/.env
 # Runtime data
 runs/
 output/
+data/
 
 # IDE / Editor
 .vscode/
