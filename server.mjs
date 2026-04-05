@@ -16,6 +16,7 @@ import { createLLMProvider } from './lib/llm/index.mjs';
 import { generateLLMIdeas } from './lib/llm/ideas.mjs';
 import { TelegramAlerter } from './lib/alerts/telegram.mjs';
 import { DiscordAlerter } from './lib/alerts/discord.mjs';
+import { initDb, saveSweepRun, saveSectionSnapshot, saveSourceErrors, saveNewsItems, cleanOldData } from './lib/db.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = __dirname;
@@ -290,6 +291,30 @@ app.get('/api/locales', (req, res) => {
   });
 });
 
+// History API endpoints (SQLite)
+import { getRecentSweeps, getSectionHistory, getNewsHistory } from './lib/db.mjs';
+
+app.get('/api/history/sweeps', async (req, res) => {
+  const limit = Math.min(Math.max(parseInt(req.query.limit) || 20, 1), 100);
+  res.json(await getRecentSweeps(limit));
+});
+
+app.get('/api/history/section/:name', async (req, res) => {
+  const section = String(req.params.name || '').replace(/[^a-zA-Z0-9_-]/g, '');
+  const limit = Math.min(Math.max(parseInt(req.query.limit) || 10, 1), 50);
+  res.json(await getSectionHistory(section, limit));
+});
+
+app.get('/api/history/news', async (req, res) => {
+  const opts = {
+    source: req.query.source || null,
+    since: req.query.since || null,
+    search: req.query.q ? String(req.query.q).slice(0, 100) : null,
+    limit: Math.min(Math.max(parseInt(req.query.limit) || 50, 1), 200),
+  };
+  res.json(await getNewsHistory(opts));
+});
+
 // SSE: live updates
 app.get('/events', (req, res) => {
   res.writeHead(200, {
@@ -383,7 +408,27 @@ async function runSweepCycle() {
 
     currentData = synthesized;
 
-    // 6. Push to all connected browsers
+    // 7. Persist to SQLite (non-blocking, errors don't kill sweep)
+    try {
+      const sweepId = await saveSweepRun(rawData.crucix, rawData.errors);
+      if (sweepId) {
+        await saveSourceErrors(sweepId, rawData.errors);
+        const sections = ['air', 'thermal', 'energy', 'metals', 'markets', 'fred', 'cnNews', 'aviation', 'cyber', 'space', 'acled'];
+        for (const sec of sections) {
+          if (synthesized[sec]) await saveSectionSnapshot(sweepId, sec, synthesized[sec]);
+        }
+        const allNews = [
+          ...(synthesized.newsFeed || []),
+          ...((synthesized.cnNews?.clusters || []).flatMap(c => c.items || [])),
+        ];
+        await saveNewsItems(sweepId, allNews);
+        console.log(`[Crucix] Persisted sweep #${sweepId} to SQLite`);
+      }
+    } catch (dbErr) {
+      console.error('[Crucix] DB persistence error (non-fatal):', dbErr.message);
+    }
+
+    // 8. Push to all connected browsers
     broadcast({ type: 'update', data: currentData });
 
     console.log(`[Crucix] Sweep complete — ${currentData.meta.sourcesOk}/${currentData.meta.sourcesQueried} sources OK`);
@@ -436,6 +481,14 @@ async function start() {
 
   server.on('listening', async () => {
     console.log(`[Crucix] Server running on http://localhost:${port}`);
+
+    // Initialize SQLite database (optional)
+    initDb().then(() => {
+      console.log('[Crucix] SQLite database initialized');
+      cleanOldData(30).catch(() => {});
+    }).catch(e => {
+      console.error('[Crucix] SQLite init failed (persistence disabled):', e.message);
+    });
 
     // Auto-open browser
     // NOTE: On Windows, `start` in PowerShell is an alias for Start-Service, not cmd's start.
