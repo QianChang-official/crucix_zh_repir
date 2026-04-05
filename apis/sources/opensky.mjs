@@ -5,6 +5,21 @@
 import { safeFetch } from '../utils/fetch.mjs';
 
 const BASE = 'https://opensky-network.org/api';
+const AIRPLANES_LIVE_BASE = 'https://api.airplanes.live/v2';
+const AIRPLANES_LIVE_MIL_URL = `${AIRPLANES_LIVE_BASE}/mil`;
+const AIRPLANES_LIVE_HEADERS = {
+  Accept: 'application/json, text/plain, */*',
+  'Accept-Language': 'en-US,en;q=0.9',
+  'Cache-Control': 'no-cache',
+  Origin: 'https://airplanes.live',
+  Pragma: 'no-cache',
+  Referer: 'https://airplanes.live/',
+  'Sec-Fetch-Dest': 'empty',
+  'Sec-Fetch-Mode': 'cors',
+  'Sec-Fetch-Site': 'cross-site',
+};
+const AIRPLANES_LIVE_CACHE_TTL_MS = 2 * 60 * 1000;
+let airplanesLiveMilCache = { expiresAt: 0, data: null };
 
 // Get all current flights (global state vector)
 export async function getAllFlights() {
@@ -63,44 +78,156 @@ const HOTSPOTS = {
   hornOfAfrica: { lamin: 5, lomin: 40, lamax: 15, lomax: 55, label: 'Horn of Africa' },
 };
 
+function isFiniteNumber(value) {
+  return Number.isFinite(Number(value));
+}
+
+function buildSampleFromState(state) {
+  const hex = String(state?.[0] || '').trim().toLowerCase();
+  const callsign = String(state?.[1] || '').trim();
+  const country = String(state?.[2] || 'Unknown').trim() || 'Unknown';
+  const altitudeMeters = Number(state?.[7]);
+  if (!hex && !callsign) return null;
+  return {
+    hex: hex || null,
+    callsign: callsign || null,
+    country,
+    altitudeM: Number.isFinite(altitudeMeters) ? Math.round(altitudeMeters) : null,
+  };
+}
+
+function buildHotspotSummary(region, key, states, error = null, extra = {}) {
+  const normalizedStates = Array.isArray(states) ? states : [];
+  return {
+    region,
+    key,
+    totalAircraft: normalizedStates.length,
+    byCountry: normalizedStates.reduce((acc, state) => {
+      const country = state?.[2] || 'Unknown';
+      acc[country] = (acc[country] || 0) + 1;
+      return acc;
+    }, {}),
+    noCallsign: normalizedStates.filter(state => !state?.[1]?.trim()).length,
+    highAltitude: normalizedStates.filter(state => state?.[7] && state[7] > 12000).length,
+    samples: normalizedStates
+      .map(buildSampleFromState)
+      .filter(Boolean)
+      .sort((left, right) => (right.altitudeM || 0) - (left.altitudeM || 0))
+      .slice(0, 4),
+    ...extra,
+    ...(error ? { error } : {}),
+  };
+}
+
+function inBoundingBox(entry, box) {
+  const lat = Number(entry?.lat);
+  const lon = Number(entry?.lon);
+  return Number.isFinite(lat)
+    && Number.isFinite(lon)
+    && lat >= box.lamin
+    && lat <= box.lamax
+    && lon >= box.lomin
+    && lon <= box.lomax;
+}
+
+function normalizeAirplanesLiveState(entry) {
+  const altitudeFeet = Number(entry?.alt_baro ?? entry?.alt_geom);
+  const altitudeMeters = Number.isFinite(altitudeFeet) ? altitudeFeet * 0.3048 : null;
+  const callsign = String(entry?.flight || entry?.r || '').trim();
+  const country = String(entry?.country || entry?.ownOpCountry || entry?.ownOp || 'Unknown').trim() || 'Unknown';
+  return [
+    String(entry?.hex || '').trim().toLowerCase(),
+    callsign,
+    country,
+    null,
+    null,
+    isFiniteNumber(entry?.lon) ? Number(entry.lon) : null,
+    isFiniteNumber(entry?.lat) ? Number(entry.lat) : null,
+    altitudeMeters,
+  ];
+}
+
+async function getMilitaryFlightsFromAirplanesLive() {
+  if (airplanesLiveMilCache.expiresAt > Date.now() && airplanesLiveMilCache.data) {
+    return airplanesLiveMilCache.data;
+  }
+
+  const data = await safeFetch(AIRPLANES_LIVE_MIL_URL, {
+    timeout: 20000,
+    retries: 0,
+    headers: AIRPLANES_LIVE_HEADERS,
+  });
+
+  const normalized = data?.error
+    ? { error: data.error }
+    : {
+        aircraft: Array.isArray(data?.ac) ? data.ac : [],
+        total: Array.isArray(data?.ac) ? data.ac.length : 0,
+      };
+
+  airplanesLiveMilCache = {
+    expiresAt: Date.now() + AIRPLANES_LIVE_CACHE_TTL_MS,
+    data: normalized,
+  };
+  return normalized;
+}
+
 // Briefing — check hotspot regions for flight activity
 export async function briefing() {
   const hotspotEntries = Object.entries(HOTSPOTS);
-  const results = await Promise.all(
+  const primaryResults = await Promise.all(
     hotspotEntries.map(async ([key, box]) => {
       const data = await getFlightsInArea(box.lamin, box.lomin, box.lamax, box.lomax);
-      const error = data?.error || null;
-      const states = data?.states || [];
-      return {
-        region: box.label,
-        key,
-        totalAircraft: states.length,
-        // states format: [icao24, callsign, origin_country, ...]
-        byCountry: states.reduce((acc, s) => {
-          const country = s[2] || 'Unknown';
-          acc[country] = (acc[country] || 0) + 1;
-          return acc;
-        }, {}),
-        // Flag potentially interesting (military often have no callsign or specific patterns)
-        noCallsign: states.filter(s => !s[1]?.trim()).length,
-        highAltitude: states.filter(s => s[7] && s[7] > 12000).length, // >12km altitude
-        ...(error ? { error } : {}),
-      };
+      const states = Array.isArray(data?.states) ? data.states : [];
+      return buildHotspotSummary(box.label, key, states, data?.error || null, { source: 'OpenSky' });
     })
   );
 
+  const needsFallback = primaryResults.some(result => result.error);
+  const militaryFallback = needsFallback ? await getMilitaryFlightsFromAirplanesLive() : null;
+  const results = [];
+  const fallbackRegions = [];
+
+  for (const result of primaryResults) {
+    if (!result.error) {
+      results.push(result);
+      continue;
+    }
+
+    if (militaryFallback && !militaryFallback.error) {
+      const box = HOTSPOTS[result.key];
+      const states = militaryFallback.aircraft
+        .filter(entry => inBoundingBox(entry, box))
+        .map(normalizeAirplanesLiveState);
+      fallbackRegions.push(result.region);
+      results.push(buildHotspotSummary(box.label, result.key, states, null, {
+        source: 'Airplanes.live MIL',
+        fallbackSource: 'Airplanes.live MIL',
+        rawCount: militaryFallback.total,
+      }));
+      continue;
+    }
+
+    results.push({
+      ...result,
+      error: `OpenSky: ${result.error}; Airplanes.live MIL: ${militaryFallback?.error || 'unavailable'}`,
+      fallbackSource: 'Airplanes.live MIL',
+    });
+  }
+
   const hotspotErrors = results
-    .filter(r => r.error)
-    .map(r => ({ region: r.region, error: r.error }));
+    .filter(result => result.error)
+    .map(result => ({ region: result.region, error: result.error }));
 
   return {
-    source: 'OpenSky',
+    source: fallbackRegions.length ? 'OpenSky / Airplanes.live MIL' : 'OpenSky',
     timestamp: new Date().toISOString(),
     hotspots: results,
+    ...(fallbackRegions.length ? { fallbackRegions, fallbackMode: 'mil-global' } : {}),
     ...(hotspotErrors.length ? {
       error: hotspotErrors.length === results.length
-        ? `OpenSky unavailable across all hotspots: ${hotspotErrors[0].error}`
-        : `OpenSky unavailable for ${hotspotErrors.length}/${results.length} hotspots`,
+        ? `Air hotspots unavailable across all regions: ${hotspotErrors[0].error}`
+        : `Air hotspots unavailable for ${hotspotErrors.length}/${results.length} regions`,
       hotspotErrors,
     } : {}),
   };
