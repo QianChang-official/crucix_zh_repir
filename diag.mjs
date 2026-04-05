@@ -49,6 +49,12 @@ const modules = [
   ['./lib/alerts/telegram.mjs', 'telegram alerter'],
   ['./dashboard/inject.mjs', 'dashboard inject'],
   ['./apis/briefing.mjs', 'briefing orchestrator'],
+  ['./apis/sources/usgs-earthquakes.mjs', 'USGS earthquakes'],
+  ['./apis/sources/nasa-eonet.mjs', 'NASA EONET'],
+  ['./apis/sources/worldbank.mjs', 'World Bank'],
+  ['./apis/sources/nvd.mjs', 'NVD'],
+  ['./apis/sources/spaceflight-news.mjs', 'Spaceflight News'],
+  ['./apis/sources/launch-library.mjs', 'Launch Library 2'],
 ];
 
 for (const [path, label] of modules) {

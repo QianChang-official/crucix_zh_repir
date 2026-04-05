@@ -36,18 +36,80 @@ import { briefing as bluesky } from './sources/bluesky.mjs';
 import { briefing as reddit } from './sources/reddit.mjs';
 import { briefing as telegram } from './sources/telegram.mjs';
 import { briefing as kiwisdr } from './sources/kiwisdr.mjs';
+import { briefing as usgsEarthquakes } from './sources/usgs-earthquakes.mjs';
+import { briefing as nasaEonet } from './sources/nasa-eonet.mjs';
 
 // === Tier 4: Space & Satellites ===
 import { briefing as space } from './sources/space.mjs';
+import { briefing as spaceflightNews } from './sources/spaceflight-news.mjs';
+import { briefing as launchLibrary } from './sources/launch-library.mjs';
 
 // === Tier 5: Live Market Data ===
 import { briefing as yfinance } from './sources/yfinance.mjs';
+import { briefing as worldBank } from './sources/worldbank.mjs';
 
 // === Tier 6: Cyber & Infrastructure ===
 import { briefing as cisaKev } from './sources/cisa-kev.mjs';
 import { briefing as cloudflareRadar } from './sources/cloudflare-radar.mjs';
+import { briefing as nvd } from './sources/nvd.mjs';
 
 const SOURCE_TIMEOUT_MS = 30_000; // 30s max per individual source
+
+export const SOURCE_DEFINITIONS = [
+  // Tier 1: Core OSINT & Geopolitical
+  { name: 'GDELT', fn: gdelt },
+  { name: 'OpenSky', fn: opensky },
+  { name: 'FIRMS', fn: firms },
+  { name: 'Maritime', fn: ships },
+  { name: 'Safecast', fn: safecast },
+  { name: 'ACLED', fn: acled },
+  { name: 'ReliefWeb', fn: reliefweb },
+  { name: 'WHO', fn: who },
+  { name: 'OFAC', fn: ofac },
+  { name: 'OpenSanctions', fn: opensanctions },
+  { name: 'ADS-B', fn: adsb },
+
+  // Tier 2: Economic & Financial
+  { name: 'FRED', fn: fred, args: () => [process.env.FRED_API_KEY] },
+  { name: 'Treasury', fn: treasury },
+  { name: 'BLS', fn: bls, args: () => [process.env.BLS_API_KEY] },
+  { name: 'EIA', fn: eia, args: () => [process.env.EIA_API_KEY] },
+  { name: 'GSCPI', fn: gscpi },
+  { name: 'USAspending', fn: usaspending },
+  { name: 'Comtrade', fn: comtrade },
+  { name: 'WorldBank', fn: worldBank },
+
+  // Tier 3: Weather, Environment, Technology, Social
+  { name: 'NOAA', fn: noaa },
+  { name: 'EPA', fn: epa },
+  { name: 'Patents', fn: patents },
+  { name: 'Bluesky', fn: bluesky },
+  { name: 'Reddit', fn: reddit },
+  { name: 'Telegram', fn: telegram },
+  { name: 'KiwiSDR', fn: kiwisdr },
+  { name: 'USGS-Earthquakes', fn: usgsEarthquakes },
+  { name: 'NASA-EONET', fn: nasaEonet },
+
+  // Tier 4: Space & Satellites
+  { name: 'Space', fn: space },
+  { name: 'Spaceflight-News', fn: spaceflightNews },
+  { name: 'Launch-Library', fn: launchLibrary },
+
+  // Tier 5: Live Market Data
+  { name: 'YFinance', fn: yfinance },
+
+  // Tier 6: Cyber & Infrastructure
+  { name: 'CISA-KEV', fn: cisaKev },
+  { name: 'Cloudflare-Radar', fn: cloudflareRadar },
+  { name: 'NVD', fn: nvd },
+];
+
+export const TOTAL_SOURCES = SOURCE_DEFINITIONS.length;
+
+function resolveArgs(definition) {
+  if (typeof definition.args === 'function') return definition.args();
+  return definition.args || [];
+}
 
 export async function runSource(name, fn, ...args) {
   const start = Date.now();
@@ -67,51 +129,12 @@ export async function runSource(name, fn, ...args) {
 }
 
 export async function fullBriefing() {
-  console.error('[Crucix] Starting intelligence sweep — 29 sources...');
+  console.error(`[Crucix] Starting intelligence sweep — ${TOTAL_SOURCES} sources...`);
   const start = Date.now();
 
-  const allPromises = [
-    // Tier 1: Core OSINT & Geopolitical
-    runSource('GDELT', gdelt),
-    runSource('OpenSky', opensky),
-    runSource('FIRMS', firms),
-    runSource('Maritime', ships),
-    runSource('Safecast', safecast),
-    runSource('ACLED', acled),
-    runSource('ReliefWeb', reliefweb),
-    runSource('WHO', who),
-    runSource('OFAC', ofac),
-    runSource('OpenSanctions', opensanctions),
-    runSource('ADS-B', adsb),
-
-    // Tier 2: Economic & Financial
-    runSource('FRED', fred, process.env.FRED_API_KEY),
-    runSource('Treasury', treasury),
-    runSource('BLS', bls, process.env.BLS_API_KEY),
-    runSource('EIA', eia, process.env.EIA_API_KEY),
-    runSource('GSCPI', gscpi),
-    runSource('USAspending', usaspending),
-    runSource('Comtrade', comtrade),
-
-    // Tier 3: Weather, Environment, Technology, Social
-    runSource('NOAA', noaa),
-    runSource('EPA', epa),
-    runSource('Patents', patents),
-    runSource('Bluesky', bluesky),
-    runSource('Reddit', reddit),
-    runSource('Telegram', telegram),
-    runSource('KiwiSDR', kiwisdr),
-
-    // Tier 4: Space & Satellites
-    runSource('Space', space),
-
-    // Tier 5: Live Market Data
-    runSource('YFinance', yfinance),
-
-    // Tier 6: Cyber & Infrastructure
-    runSource('CISA-KEV', cisaKev),
-    runSource('Cloudflare-Radar', cloudflareRadar),
-  ];
+  const allPromises = SOURCE_DEFINITIONS.map(definition =>
+    runSource(definition.name, definition.fn, ...resolveArgs(definition))
+  );
 
   // Each runSource has its own 30s timeout, so allSettled will resolve
   // within ~30s even if APIs hang. Global timeout is a safety net.

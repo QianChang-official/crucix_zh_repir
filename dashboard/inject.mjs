@@ -80,6 +80,10 @@ const geoKeywords = {
   'Fed':[38.9,-77],'Congress':[38.9,-77],'Senate':[38.9,-77],
   'Silicon Valley':[37.4,-122],'NASA':[28.6,-80.6],'Pentagon':[38.9,-77],
   'IMF':[38.9,-77],'World Bank':[38.9,-77],'UN':[40.7,-74],
+  '伊朗':[32,53],'美国':[39,-98],'乌克兰':[49,32],'俄罗斯':[56,38],'以色列':[31.5,35],
+  '中国':[35,105],'北京':[39.9,116.4],'日本':[36,138],'韩国':[37,127],'科威特':[29.3,47.5],
+  '阿联酋':[24,54],'沙特':[24,45],'香港':[22.3,114.2],'新疆':[43.8,87.6],'吐鲁番':[42.95,89.19],
+  '欧盟':[50,4],'德国':[51,10],'葡萄牙':[39.5,-8],'霍尔木兹':[26.5,56.5],'阿克苏':[41.17,80.26],
 };
 
 function geoTagText(text) {
@@ -99,6 +103,47 @@ function sanitizeExternalUrl(raw) {
     return url.protocol === 'http:' || url.protocol === 'https:' ? url.toString() : undefined;
   } catch {
     return undefined;
+  }
+}
+
+function normalizeSignalList(list = []) {
+  const seen = new Set();
+  const normalized = [];
+  for (const entry of list) {
+    const text = typeof entry === 'string'
+      ? entry
+      : typeof entry?.signal === 'string'
+        ? entry.signal
+        : typeof entry?.label === 'string'
+          ? entry.label
+          : typeof entry?.reason === 'string'
+            ? entry.reason
+            : null;
+    if (!text) continue;
+    const clean = text.replace(/\s+/g, ' ').trim();
+    if (!clean || seen.has(clean)) continue;
+    seen.add(clean);
+    normalized.push(clean);
+  }
+  return normalized;
+}
+
+async function fetchJsonWithTimeout(url, timeout = 8000, headers = {}) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeout);
+  try {
+    const res = await fetch(url, {
+      signal: controller.signal,
+      headers: {
+        'User-Agent': 'Crucix/1.0',
+        'Accept': 'application/json,text/plain,*/*',
+        ...headers,
+      },
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  } finally {
+    clearTimeout(timer);
   }
 }
 
@@ -171,9 +216,41 @@ const RSS_SOURCE_FALLBACKS = {
   'SBS Australia': { lat: -35.2809, lon: 149.13, region: 'Australia' },
   'Indian Express': { lat: 28.6139, lon: 77.209, region: 'India' },
   'The Hindu': { lat: 13.0827, lon: 80.2707, region: 'India' },
-  'MercoPress': { lat: -34.9011, lon: -56.1645, region: 'South America' }
+  'MercoPress': { lat: -34.9011, lon: -56.1645, region: 'South America' },
+  'CLS Telegraph': { lat: 31.2304, lon: 121.4737, region: 'China' },
+  'WallStreetCN Live': { lat: 31.2304, lon: 121.4737, region: 'China' }
 };
 const REGIONAL_NEWS_SOURCES = ['MercoPress', 'Indian Express', 'The Hindu', 'SBS Australia'];
+const NEWSNOW_REALTIME_SOURCES = [
+  { id: 'cls-telegraph', source: 'CLS Telegraph' },
+  { id: 'wallstreetcn-quick', source: 'WallStreetCN Live' },
+];
+const NEWSNOW_BROWSER_HEADERS = {
+  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36',
+  'Accept': 'application/json, text/plain, */*',
+  'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
+  'Referer': 'https://newsnow.busiyi.world/c/realtime',
+  'Origin': 'https://newsnow.busiyi.world',
+};
+
+async function fetchNewsNowRealtime() {
+  const results = await Promise.allSettled(
+    NEWSNOW_REALTIME_SOURCES.map(async ({ id, source }) => {
+      const payload = await fetchJsonWithTimeout(`https://newsnow.busiyi.world/api/s?id=${id}&latest=true`, 10000, NEWSNOW_BROWSER_HEADERS);
+      const items = Array.isArray(payload?.items) ? payload.items : [];
+      return items.slice(0, 20).map(item => ({
+        title: (item.title || '').trim(),
+        date: item.pubDate || item.extra?.date || payload?.updatedTime || Date.now(),
+        source,
+        url: sanitizeExternalUrl(item.url || item.mobileUrl),
+      })).filter(item => item.title);
+    })
+  );
+
+  return results
+    .filter(result => result.status === 'fulfilled')
+    .flatMap(result => result.value);
+}
 
 export async function fetchAllNews() {
   const feeds = [
@@ -205,13 +282,15 @@ export async function fetchAllNews() {
     ['https://en.mercopress.com/rss/latin-america', 'MercoPress'],
   ];
 
-  const results = await Promise.allSettled(
-    feeds.map(([url, source]) => fetchRSS(url, source))
-  );
+  const [results, realtimeWireNews] = await Promise.all([
+    Promise.allSettled(feeds.map(([url, source]) => fetchRSS(url, source))),
+    fetchNewsNowRealtime().catch(() => []),
+  ]);
 
   const allNews = results
     .filter(r => r.status === 'fulfilled')
-    .flatMap(r => r.value);
+    .flatMap(r => r.value)
+    .concat(realtimeWireNews || []);
 
   // De-duplicate and geo-tag
   const seen = new Set();
@@ -249,7 +328,7 @@ export async function fetchAllNews() {
   };
 
   // Reserve a little space so newly-added regional feeds are not crowded out by larger globals.
-  for (const source of REGIONAL_NEWS_SOURCES) {
+  for (const source of [...REGIONAL_NEWS_SOURCES, ...NEWSNOW_REALTIME_SOURCES.map(item => item.source)]) {
     filtered.filter(item => item.source === source).slice(0, 2).forEach(pushUnique);
   }
   filtered.forEach(pushUnique);
@@ -410,14 +489,14 @@ export async function synthesize(data) {
     hc: h.highConfidence || 0,
     fires: (h.highIntensity || []).slice(0, 8).map(f => ({ lat: f.lat, lon: f.lon, frp: f.frp || 0 }))
   }));
-  const tSignals = data.sources.FIRMS?.signals || [];
+  const tSignals = normalizeSignalList(data.sources.FIRMS?.signals || []);
   const chokepoints = Object.values(data.sources.Maritime?.chokepoints || {}).map(c => ({
     label: c.label || c.name, note: c.note || '', lat: c.lat || 0, lon: c.lon || 0
   }));
   const nuke = (data.sources.Safecast?.sites || []).map(s => ({
     site: s.site, anom: s.anomaly || false, cpm: s.avgCPM, n: s.recentReadings || 0
   }));
-  const nukeSignals = (data.sources.Safecast?.signals || []).filter(s => s);
+  const nukeSignals = normalizeSignalList(data.sources.Safecast?.signals || []);
   const sdrData = data.sources.KiwiSDR || {};
   const sdrNet = sdrData.network || {};
   const sdrConflict = sdrData.conflictZones || {};
@@ -477,8 +556,94 @@ export async function synthesize(data) {
   }
   const epa = { totalReadings: epaData.totalReadings || 0, stations: epaStations.slice(0, 10) };
 
+  // Disaster stack — USGS earthquakes + NASA EONET natural events
+  const usgsData = data.sources['USGS-Earthquakes'] || {};
+  const eonetData = data.sources['NASA-EONET'] || {};
+  const disaster = {
+    quakeCount24h: usgsData.summary?.total24h || 0,
+    significantQuakes: usgsData.summary?.significantCount || 0,
+    majorQuakes: usgsData.summary?.majorCount || 0,
+    tsunamiCount: usgsData.summary?.tsunamiCount || 0,
+    maxMagnitude24h: usgsData.summary?.maxMagnitude || 0,
+    topRegions: (usgsData.topRegions || []).slice(0, 6).map(region => ({
+      region: region.region,
+      count: region.count,
+    })),
+    earthquakes: (usgsData.earthquakes || []).slice(0, 15).map(quake => ({
+      id: quake.id,
+      magnitude: quake.magnitude,
+      place: quake.place,
+      region: quake.region,
+      time: quake.time,
+      lat: quake.lat,
+      lon: quake.lon,
+      depthKm: quake.depthKm,
+      tsunami: Boolean(quake.tsunami),
+      alert: quake.alert,
+      significance: quake.significance || 0,
+      url: quake.url,
+    })),
+    openEvents: eonetData.openEvents || 0,
+    categories: eonetData.categories || {},
+    events: (eonetData.events || []).slice(0, 15).map(event => ({
+      id: event.id,
+      title: event.title,
+      category: event.category,
+      categoryId: event.categoryId,
+      source: event.source,
+      date: event.date,
+      lat: event.lat,
+      lon: event.lon,
+      magnitudeValue: event.magnitudeValue,
+      magnitudeUnit: event.magnitudeUnit,
+      link: event.link,
+    })),
+    signals: normalizeSignalList([...(usgsData.signals || []), ...(eonetData.signals || [])]).slice(0, 8),
+  };
+
+  // World Bank structural macro layer
+  const worldBankData = data.sources.WorldBank || {};
+  const world = {
+    profiles: (worldBankData.profiles || []).map(profile => ({
+      code: profile.code,
+      name: profile.name,
+      gdp: profile.gdp ?? null,
+      inflation: profile.inflation ?? null,
+      tradePct: profile.tradePct ?? null,
+      militaryPct: profile.militaryPct ?? null,
+      dates: profile.dates || {},
+    })),
+    gdpLeaders: (worldBankData.gdpLeaders || []).slice(0, 5).map(profile => ({
+      name: profile.name,
+      code: profile.code,
+      gdp: profile.gdp,
+      date: profile.dates?.gdp || null,
+    })),
+    inflationLeaders: (worldBankData.inflationLeaders || []).slice(0, 5).map(profile => ({
+      name: profile.name,
+      code: profile.code,
+      inflation: profile.inflation,
+      date: profile.dates?.inflation || null,
+    })),
+    tradeExposure: (worldBankData.tradeExposure || []).slice(0, 5).map(profile => ({
+      name: profile.name,
+      code: profile.code,
+      tradePct: profile.tradePct,
+      date: profile.dates?.tradePct || null,
+    })),
+    militaryBurden: (worldBankData.militaryBurden || []).slice(0, 5).map(profile => ({
+      name: profile.name,
+      code: profile.code,
+      militaryPct: profile.militaryPct,
+      date: profile.dates?.militaryPct || null,
+    })),
+    signals: normalizeSignalList(worldBankData.signals || []),
+  };
+
   // Space/CelesTrak satellite data
   const spaceData = data.sources.Space || {};
+  const spaceNewsData = data.sources['Spaceflight-News'] || {};
+  const launchLibraryData = data.sources['Launch-Library'] || {};
   // Approximate subsatellite position from TLE orbital elements
   function estimateSatPosition(sat) {
     if (!sat?.inclination || !sat?.epoch) return null;
@@ -496,12 +661,52 @@ export async function synthesize(data) {
   }
   const issPos = estimateSatPosition(spaceData.iss);
   const spaceStations = (spaceData.spaceStations || []).map(s => estimateSatPosition(s)).filter(Boolean);
+  const issAltitudeKm = Number.isFinite(spaceData.iss?.apogee) && Number.isFinite(spaceData.iss?.perigee)
+    ? (spaceData.iss.apogee + spaceData.iss.perigee) / 2
+    : null;
+  const spaceHeadlines = (spaceNewsData.articles || []).slice(0, 6).map(article => ({
+    title: article.title,
+    source: article.source,
+    publishedAt: article.publishedAt,
+    summary: article.summary,
+    url: article.url,
+  }));
+  const now = Date.now();
+  const upcomingLaunches = (launchLibraryData.launches || [])
+    .filter(launch => {
+      const net = new Date(launch.net || 0).getTime();
+      return Number.isFinite(net) && net >= (now - 30 * 60 * 1000);
+    })
+    .slice(0, 8)
+    .map(launch => ({
+    id: launch.id,
+    name: launch.name,
+    net: launch.net,
+    status: launch.status,
+    provider: launch.provider,
+    probability: launch.probability,
+    weatherConcerns: launch.weatherConcerns,
+    missionType: launch.missionType,
+    missionName: launch.missionName,
+    orbit: launch.orbit,
+    pad: launch.pad,
+    lat: launch.lat,
+    lon: launch.lon,
+    country: launch.country,
+    url: launch.url,
+  }));
+  const spaceSignals = normalizeSignalList([
+    ...(spaceData.signals || []),
+    ...(launchLibraryData.signals || []),
+    ...(spaceNewsData.signals || []),
+  ]);
   const space = {
     totalNewObjects: spaceData.totalNewObjects || 0,
     militarySats: spaceData.militarySatellites || 0,
     militaryByCountry: spaceData.militaryByCountry || {},
     constellations: spaceData.constellations || {},
     iss: spaceData.iss || null,
+    issAltitudeKm,
     issPosition: issPos,
     stationPositions: spaceStations.slice(0, 5),
     recentLaunches: (spaceData.recentLaunches || []).slice(0, 10).map(l => ({
@@ -509,7 +714,12 @@ export async function synthesize(data) {
       apogee: l.apogee, perigee: l.perigee, type: l.objectType
     })),
     launchByCountry: spaceData.launchByCountry || {},
-    signals: spaceData.signals || [],
+    upcomingCount: launchLibraryData.upcomingCount || 0,
+    next72h: launchLibraryData.next72h || 0,
+    providerMix: launchLibraryData.byProvider || {},
+    upcomingLaunches,
+    headlines: spaceHeadlines,
+    signals: spaceSignals.slice(0, 8),
   };
 
   // ACLED conflict events
@@ -537,6 +747,38 @@ export async function synthesize(data) {
     geoPoints: (gdeltData.geoPoints || []).slice(0, 20).map(p => ({
       lat: p.lat, lon: p.lon, name: (p.name || '').substring(0, 80), count: p.count || 1
     }))
+  };
+
+  // Cyber stack — NVD + CISA KEV
+  const cisaKevData = data.sources['CISA-KEV'] || {};
+  const nvdData = data.sources.NVD || {};
+  const cyber = {
+    summary: {
+      critical: nvdData.summary?.critical || 0,
+      high: nvdData.summary?.high || 0,
+      medium: nvdData.summary?.medium || 0,
+      rceCount: nvdData.summary?.rceCount || 0,
+      authBypassCount: nvdData.summary?.authBypassCount || 0,
+      kevRecent: cisaKevData.summary?.recentAdditions || 0,
+      kevRansomware: cisaKevData.summary?.ransomwareLinked || 0,
+    },
+    recentCves: (nvdData.vulnerabilities || []).slice(0, 8).map(vulnerability => ({
+      id: vulnerability.id,
+      severity: vulnerability.severity,
+      score: vulnerability.score,
+      published: vulnerability.published,
+      summary: vulnerability.summary,
+      url: vulnerability.url,
+    })),
+    kevRecent: (cisaKevData.vulnerabilities || []).slice(0, 6).map(vulnerability => ({
+      id: vulnerability.cveID,
+      vendor: vulnerability.vendorProject,
+      product: vulnerability.product,
+      title: vulnerability.vulnerabilityName,
+      dateAdded: vulnerability.dateAdded,
+      ransomware: vulnerability.knownRansomwareCampaignUse === 'Known',
+    })),
+    signals: normalizeSignalList([...(cisaKevData.signals || []), ...(nvdData.signals || [])]).slice(0, 8),
   };
 
   const health = Object.entries(data.sources).map(([name, src]) => ({
@@ -608,18 +850,18 @@ export async function synthesize(data) {
     },
     sdr: { total: sdrNet.totalReceivers || 0, online: sdrNet.online || 0, zones: sdrZones },
     tg: { posts: tgData.totalPosts || 0, urgent: tgUrgent, topPosts: tgTop },
-    who, fred, energy, metals, bls, treasury, gscpi, defense, noaa, epa, acled, gdelt, space, health, news,
+    who, fred, energy, metals, bls, treasury, gscpi, defense, noaa, epa, disaster, world, cyber, acled, gdelt, space, health, news,
     markets, // Live Yahoo Finance market data
     ideas: [], ideasSource: 'disabled',
     // newsFeed for ticker (merged RSS + GDELT + Telegram)
-    newsFeed: buildNewsFeed(news, gdeltData, tgUrgent, tgTop),
+    newsFeed: buildNewsFeed(news, gdeltData, tgUrgent, tgTop, spaceHeadlines),
   };
 
   return V2;
 }
 
 // === Unified News Feed for Ticker ===
-function buildNewsFeed(rssNews, gdeltData, tgUrgent, tgTop) {
+function buildNewsFeed(rssNews, gdeltData, tgUrgent, tgTop, spaceArticles = []) {
   const feed = [];
 
   // RSS news
@@ -639,6 +881,20 @@ function buildNewsFeed(rssNews, gdeltData, tgUrgent, tgTop) {
         timestamp: new Date().toISOString(), region: geo?.region || 'Global', urgent: false, url: sanitizeExternalUrl(a.url)
       });
     }
+  }
+
+  // Space news
+  for (const article of spaceArticles.slice(0, 6)) {
+    if (!article?.title) continue;
+    feed.push({
+      headline: article.title.substring(0, 100),
+      source: article.source || 'Spaceflight',
+      type: 'space',
+      timestamp: article.publishedAt,
+      region: 'Space',
+      urgent: false,
+      url: sanitizeExternalUrl(article.url),
+    });
   }
 
   // Telegram urgent

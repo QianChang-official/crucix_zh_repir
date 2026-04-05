@@ -9,7 +9,7 @@ import { fileURLToPath } from 'url';
 import { exec } from 'child_process';
 import config from './crucix.config.mjs';
 import { getLocale, currentLanguage, getSupportedLocales } from './lib/i18n.mjs';
-import { fullBriefing } from './apis/briefing.mjs';
+import { fullBriefing, TOTAL_SOURCES } from './apis/briefing.mjs';
 import { synthesize, generateIdeas } from './dashboard/inject.mjs';
 import { MemoryManager } from './lib/delta/index.mjs';
 import { createLLMProvider } from './lib/llm/index.mjs';
@@ -270,6 +270,8 @@ app.get('/api/health', (req, res) => {
       : null,
     sweepInProgress,
     sweepStartedAt,
+    configuredSources: TOTAL_SOURCES,
+    sourcesQueried: currentData?.meta?.sourcesQueried || TOTAL_SOURCES,
     sourcesOk: currentData?.meta?.sourcesOk || 0,
     sourcesFailed: currentData?.meta?.sourcesFailed || 0,
     llmEnabled: !!config.llm.provider,
@@ -400,18 +402,20 @@ async function runSweepCycle() {
 // === Startup ===
 async function start() {
   const port = config.port;
+  const sourceLine = `${TOTAL_SOURCES} Sources`;
+  const discordStatus = config.discord?.botToken ? 'enabled' : config.discord?.webhookUrl ? 'webhook only' : 'disabled';
 
   console.log(`
   ╔══════════════════════════════════════════════╗
   ║           CRUCIX INTELLIGENCE ENGINE         ║
-  ║          Local Palantir · 26 Sources         ║
+  ║        Local Palantir · ${sourceLine.padEnd(19)}║
   ╠══════════════════════════════════════════════╣
   ║  Dashboard:  http://localhost:${port}${' '.repeat(14 - String(port).length)}║
   ║  Health:     http://localhost:${port}/api/health${' '.repeat(4 - String(port).length)}║
   ║  Refresh:    Every ${config.refreshIntervalMinutes} min${' '.repeat(20 - String(config.refreshIntervalMinutes).length)}║
   ║  LLM:        ${(config.llm.provider || 'disabled').padEnd(31)}║
   ║  Telegram:   ${config.telegram.botToken ? 'enabled' : 'disabled'}${' '.repeat(config.telegram.botToken ? 24 : 23)}║
-  ║  Discord:    ${config.discord?.botToken ? 'enabled' : config.discord?.webhookUrl ? 'webhook only' : 'disabled'}${' '.repeat(config.discord?.botToken ? 24 : config.discord?.webhookUrl ? 20 : 23)}║
+  ║  Discord:    ${discordStatus}${' '.repeat(config.discord?.botToken ? 24 : config.discord?.webhookUrl ? 20 : 23)}║
   ╚══════════════════════════════════════════════╝
   `);
 

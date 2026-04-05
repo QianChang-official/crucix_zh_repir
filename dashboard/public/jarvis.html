@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>CRUCIX — Intelligence Terminal</title>
+<title>CRUCIX — 战情终端</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600;700&family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
@@ -19,7 +19,7 @@
   --text:#e8f4f0;--dim:#6a8a82;--accent:#64f0c8;--accent2:#44ccff;
   --warn:#ffb84c;--danger:#ff5f63;--mono:'IBM Plex Mono',monospace;--sans:'Space Grotesk',sans-serif;
 }
-html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--sans);overflow-x:hidden}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--sans);overflow-x:hidden;overflow-y:auto}
 .bg-grid{position:fixed;inset:0;pointer-events:none;opacity:0;
   background-image:linear-gradient(rgba(100,240,200,0.03) 1px,transparent 1px),linear-gradient(90deg,rgba(100,240,200,0.03) 1px,transparent 1px);
   background-size:60px 60px;mask-image:radial-gradient(ellipse at 50% 30%,black 20%,transparent 70%)}
@@ -86,6 +86,8 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--s
 .ldot.health{background:#69f0ae;box-shadow:0 0 6px rgba(105,240,174,0.4)}
 .ldot.news{background:#81d4fa;box-shadow:0 0 6px rgba(129,212,250,0.4)}
 .ldot.space{background:#e0b0ff;box-shadow:0 0 6px rgba(224,176,255,0.4)}
+.ldot.disaster{background:#ff80ab;box-shadow:0 0 6px rgba(255,128,171,0.4)}
+.ldot.cyber{background:#90caf9;box-shadow:0 0 6px rgba(144,202,249,0.4)}
 .layer-name{font-size:12px;font-weight:500}
 .layer-sub{font-size:10px;color:var(--dim)}
 .layer-count{font-family:var(--mono);font-size:13px;font-weight:600;color:var(--accent)}
@@ -108,8 +110,11 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--s
 #flatMapSvg .border{fill:none;stroke:rgba(200,220,230,0.08);stroke-width:0.3}
 @keyframes pulse-conflict{0%,100%{opacity:0.5;stroke-width:1.5}50%{opacity:0.9;stroke-width:2.5}}
 .conflict-ring{animation:pulse-conflict 2.5s ease-in-out infinite}
-@keyframes dash-flow{to{stroke-dashoffset:-20}}
-.corridor-flow{animation:dash-flow 2s linear infinite}
+@keyframes dash-flow{to{stroke-dashoffset:-28}}
+@keyframes corridor-breathe{0%,100%{opacity:0.18}50%{opacity:0.4}}
+.corridor-glow{animation:corridor-breathe 3.6s ease-in-out infinite}
+.corridor-core{mix-blend-mode:screen}
+.corridor-flow{animation:dash-flow 2.4s linear infinite}
 .map-legend{position:absolute;bottom:10px;left:12px;display:flex;gap:14px;font-family:var(--mono);font-size:10px;color:var(--dim);letter-spacing:0.06em;text-transform:uppercase;z-index:5;flex-wrap:wrap}
 .leg-item{display:flex;align-items:center;gap:5px}
 .leg-dot{width:8px;height:8px;border-radius:50%}
@@ -126,6 +131,9 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--s
 .map-popup .pp-head{font-family:var(--mono);font-size:10px;font-weight:600;color:var(--accent);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:4px}
 .map-popup .pp-text{font-size:11px;line-height:1.4;color:#c8d8d2}
 .map-popup .pp-meta{font-family:var(--mono);font-size:10px;color:var(--dim);margin-top:6px}
+.map-popup .pp-link-row{margin-top:8px}
+.map-popup .pp-link{display:inline-flex;align-items:center;gap:4px;font-family:var(--mono);font-size:10px;letter-spacing:0.08em;text-transform:uppercase;color:var(--accent2);text-decoration:none;border:1px solid rgba(68,204,255,0.22);padding:4px 7px;background:rgba(68,204,255,0.06)}
+.map-popup .pp-link:hover{border-color:rgba(68,204,255,0.45);color:#d9f7ff;background:rgba(68,204,255,0.12)}
 .map-popup .pp-close{position:absolute;top:6px;right:8px;background:none;border:none;color:var(--dim);font-size:14px;cursor:pointer}
 .glossary-overlay{position:fixed;inset:0;z-index:1200;background:rgba(2,6,10,0.72);backdrop-filter:blur(10px);opacity:0;pointer-events:none;transition:opacity 0.25s ease}
 .glossary-overlay.show{opacity:1;pointer-events:auto}
@@ -210,20 +218,16 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--s
 .disclosure{font-family:var(--mono);font-size:8px;color:rgba(106,138,130,0.6);line-height:1.4;padding:6px;border-top:1px solid rgba(255,255,255,0.04);margin-top:6px}
 
 /* NEWS TICKER */
-.ticker-wrap{overflow:hidden;max-height:320px;position:relative;border:1px solid rgba(100,240,200,0.08);background:rgba(0,0,0,0.15)}
-.ticker-wrap::before,.ticker-wrap::after{content:'';position:absolute;left:0;right:0;height:30px;z-index:2;pointer-events:none}
-.ticker-wrap::before{top:0;background:linear-gradient(to bottom,rgba(14,17,22,0.95),transparent)}
-.ticker-wrap::after{bottom:0;background:linear-gradient(to top,rgba(14,17,22,0.95),transparent)}
-.ticker-track{display:flex;flex-direction:column;animation:tickerScroll var(--ticker-duration,30s) linear infinite;will-change:transform;contain:layout style}
-.ticker-wrap:hover .ticker-track{animation-play-state:paused}
-@keyframes tickerScroll{0%{transform:translateY(0)}100%{transform:translateY(-50%)}}
+.ticker-wrap{overflow-y:auto;overflow-x:hidden;max-height:320px;position:relative;border:1px solid rgba(100,240,200,0.08);background:rgba(0,0,0,0.15);scrollbar-width:thin;scrollbar-color:rgba(100,240,200,0.2) transparent;overscroll-behavior:contain}
+.ticker-wrap::before,.ticker-wrap::after{display:none}
+.ticker-wrap::-webkit-scrollbar{width:5px}
+.ticker-wrap::-webkit-scrollbar-track{background:transparent}
+.ticker-wrap::-webkit-scrollbar-thumb{background:rgba(100,240,200,0.2);border-radius:3px}
+.ticker-track{display:block;animation:none;will-change:auto;contain:none}
 .tk-card{padding:8px 10px;border-bottom:1px solid rgba(255,255,255,0.03);cursor:default;transition:background 0.2s}
-.tk-card.clickable{cursor:pointer}
-.tk-card .tk-link{display:none;margin-left:auto;font-size:10px;color:var(--dim);transition:color 0.2s}
-.tk-card.clickable .tk-link{display:inline-flex;align-items:center}
-.tk-card.clickable:hover .tk-link{color:var(--accent)}
 .tk-card:hover{background:rgba(100,240,200,0.04)}
 .tk-card.urgent{border-left:2px solid var(--danger)}
+.tk-top{display:flex;align-items:center;gap:4px;flex-wrap:wrap}
 .tk-src{font-family:var(--mono);font-size:8px;letter-spacing:0.08em;text-transform:uppercase;padding:1px 5px;border:1px solid;display:inline-block;margin-right:4px}
 .tk-src.bbc{color:#64b5f6;border-color:rgba(100,181,246,0.3)}
 .tk-src.nyt{color:#b0bec5;border-color:rgba(176,190,197,0.3)}
@@ -240,6 +244,8 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--s
 .tk-src.other{color:#b0bec5;border-color:rgba(176,190,197,0.2)}
 .tk-head{font-size:11px;line-height:1.35;color:#c8d8d2;margin-top:3px}
 .tk-time{font-family:var(--mono);font-size:8px;color:var(--dim);margin-top:2px}
+.tk-link{margin-left:auto;display:inline-flex;align-items:center;gap:3px;font-family:var(--mono);font-size:9px;letter-spacing:0.08em;text-transform:uppercase;color:var(--accent2);text-decoration:none;border:1px solid rgba(68,204,255,0.2);padding:2px 5px;background:rgba(68,204,255,0.05)}
+.tk-link:hover{border-color:rgba(68,204,255,0.45);color:#d9f7ff;background:rgba(68,204,255,0.12)}
 
 /* DELTA BADGES */
 .delta-badge{font-family:var(--mono);font-size:8px;letter-spacing:0.05em;padding:1px 4px;margin-left:4px;border-radius:2px;vertical-align:middle}
@@ -301,8 +307,10 @@ body.low-perf .ticker-wrap::-webkit-scrollbar-thumb{background:rgba(100,240,200,
 .corridor-line{fill:none;opacity:0.6;pointer-events:none}
 @keyframes flicker-ghost{0%,100%{opacity:0.15}30%{opacity:0.45}60%{opacity:0.1}85%{opacity:0.35}}
 .ghost-marker{animation:flicker-ghost 2s ease-in-out infinite}
-@keyframes dash-flow{to{stroke-dashoffset:-20}}
-.corridor-flow{animation:dash-flow 2s linear infinite}
+@keyframes dash-flow{to{stroke-dashoffset:-28}}
+.corridor-glow{animation:corridor-breathe 3.6s ease-in-out infinite}
+.corridor-core{mix-blend-mode:screen}
+.corridor-flow{animation:dash-flow 2.4s linear infinite}
 
 /* SPARKLINES */
 .spark-svg{display:inline-block;width:52px;height:18px;vertical-align:middle;margin-left:4px}
@@ -326,7 +334,7 @@ body.low-perf .ticker-wrap::-webkit-scrollbar-thumb{background:rgba(100,240,200,
 <div id="boot">
   <div class="logo-ring"><span class="logo-text">CRUCIX</span></div>
   <div id="bootLines"></div>
-  <div id="bootFinal">TERMINAL ACTIVE</div>
+  <div id="bootFinal">终端在线</div>
 </div>
 <div class="bg-radial" id="bgRadial"></div>
 <div class="bg-grid" id="bgGrid"></div>
@@ -340,16 +348,16 @@ body.low-perf .ticker-wrap::-webkit-scrollbar-thumb{background:rgba(100,240,200,
       <div class="map-container" id="mapContainer">
         <div id="globeViz"></div>
         <svg id="flatMapSvg" style="display:none;width:100%;height:100%;position:absolute;top:0;left:0;cursor:grab"></svg>
-        <div class="map-loading" id="mapLoading"><div class="map-loading-card"><div class="map-loading-ring"></div><div class="map-loading-text" id="mapLoadingText">Initializing 3D Globe</div></div></div>
+        <div class="map-loading" id="mapLoading"><div class="map-loading-card"><div class="map-loading-ring"></div><div class="map-loading-text" id="mapLoadingText">正在载入三维地球</div></div></div>
         <div class="map-legend" id="mapLegend"></div>
-        <div class="map-hint" id="mapHint">SCROLL TO ZOOM · DRAG TO PAN</div>
+        <div class="map-hint" id="mapHint">拖拽平移 · +/- 缩放</div>
         <div class="map-controls">
-          <button class="map-ctrl-btn" onclick="mapZoom(1.5)" title="Zoom in">+</button>
-          <button class="map-ctrl-btn" onclick="mapZoom(0.67)" title="Zoom out">&minus;</button>
-          <button class="map-ctrl-btn map-toggle" id="flightToggle" onclick="toggleFlights()" title="Toggle flight routes">&#9992;</button>
+          <button class="map-ctrl-btn" onclick="mapZoom(1.5)" title="放大">+</button>
+          <button class="map-ctrl-btn" onclick="mapZoom(0.67)" title="缩小">&minus;</button>
+          <button class="map-ctrl-btn map-toggle" id="flightToggle" onclick="toggleFlights()" title="切换航路显示">&#9992;</button>
         </div>
-        <button class="proj-toggle" id="projToggle" onclick="toggleMapMode()">GLOBE MODE</button>
-        <div class="map-popup" id="mapPopup"><button class="pp-close" onclick="closePopup()">&times;</button><div class="pp-head"></div><div class="pp-text"></div><div class="pp-meta"></div></div>
+        <button class="proj-toggle" id="projToggle" onclick="toggleMapMode()">地球模式</button>
+        <div class="map-popup" id="mapPopup"><button class="pp-close" onclick="closePopup()">&times;</button><div class="pp-head"></div><div class="pp-text"></div><div class="pp-meta"></div><div class="pp-link-row"><a class="pp-link" target="_blank" rel="noopener noreferrer" hidden>打开链接 &#8599;</a></div></div>
       </div>
       <div class="lower" id="lowerGrid"></div>
     </div>
@@ -360,14 +368,14 @@ body.low-perf .ticker-wrap::-webkit-scrollbar-thumb{background:rgba(100,240,200,
   <div class="glossary-panel">
     <div class="glossary-head">
       <div>
-        <div class="glossary-kicker">Signal Guide</div>
-        <div class="glossary-title">What the signals actually mean</div>
-        <div class="glossary-sub">Plain-English interpretation, why it matters, and what you should not infer from it.</div>
+        <div class="glossary-kicker">信号词典</div>
+        <div class="glossary-title">这些信号实际代表什么</div>
+        <div class="glossary-sub">用中文解释含义、关注理由，以及不应直接推断出的结论。</div>
       </div>
-      <button class="glossary-close" onclick="closeGlossary()" aria-label="Close signal guide">&times;</button>
+      <button class="glossary-close" onclick="closeGlossary()" aria-label="关闭信号词典">&times;</button>
     </div>
     <div class="glossary-body" id="glossaryBody"></div>
-    <div class="glossary-foot">Treat these as interpretation guides, not conclusions. Stronger judgments should come from corroboration across multiple layers, not from a single signal viewed in isolation.</div>
+    <div class="glossary-foot">这里的说明是判读辅助，不是结论。更强判断应来自多图层交叉印证，而不是单一信号的孤立观察。</div>
   </div>
 </div>
 <script>
@@ -387,6 +395,140 @@ function t(keyPath, fallback) {
   }
   return typeof value === 'string' ? value : (fallback || keyPath);
 }
+const UI_LOCALE = (L.meta?.code || 'zh').startsWith('zh') ? 'zh-CN' : 'en-US';
+const CHINA_TIMEZONE = 'Asia/Shanghai';
+const SOURCE_TIME_PROFILES = [
+  { pattern: /bbc|cls telegraph/i, country: '英国', timeZone: 'Europe/London' },
+  { pattern: /nyt|npr|spaceflight|usgs|nvd|cisa|epa|noaa/i, country: '美国', timeZone: 'America/New_York' },
+  { pattern: /al jazeera/i, country: '卡塔尔', timeZone: 'Asia/Qatar' },
+  { pattern: /france 24|rfi/i, country: '法国', timeZone: 'Europe/Paris' },
+  { pattern: /euronews/i, country: '欧盟', timeZone: 'Europe/Brussels' },
+  { pattern: /indian express|the hindu/i, country: '印度', timeZone: 'Asia/Kolkata' },
+  { pattern: /sbs/i, country: '澳大利亚', timeZone: 'Australia/Sydney' },
+  { pattern: /africa news/i, country: '东非', timeZone: 'Africa/Nairobi' },
+  { pattern: /mercopress/i, country: '南美', timeZone: 'America/Montevideo' },
+  { pattern: /wallstreetcn|wall street cn/i, country: '中国', timeZone: 'Asia/Shanghai' },
+  { pattern: /wartranslated|intelslava|ukraine_frontline/i, country: '东欧', timeZone: 'Europe/Kyiv' },
+  { pattern: /cig_telegram|egyosint/i, country: '埃及', timeZone: 'Africa/Cairo' },
+  { pattern: /who/i, country: '瑞士', timeZone: 'Europe/Zurich' }
+];
+
+function makeDate(value){
+  const date = value instanceof Date ? value : new Date(value);
+  return Number.isFinite(date.getTime()) ? date : null;
+}
+
+function escapeAttr(value){
+  return String(value ?? '')
+    .replace(/&/g,'&amp;')
+    .replace(/"/g,'&quot;')
+    .replace(/'/g,'&#39;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;');
+}
+
+function getZoneParts(date, timeZone){
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hourCycle: 'h23'
+  }).formatToParts(date);
+  return Object.fromEntries(parts.filter(part => part.type !== 'literal').map(part => [part.type, part.value]));
+}
+
+function getTimeZoneOffsetMinutes(date, timeZone){
+  const parts = getZoneParts(date, timeZone);
+  const utcTime = Date.UTC(
+    Number(parts.year),
+    Number(parts.month) - 1,
+    Number(parts.day),
+    Number(parts.hour),
+    Number(parts.minute),
+    Number(parts.second)
+  );
+  return Math.round((utcTime - date.getTime()) / 60000);
+}
+
+function formatClockForZone(date, timeZone){
+  return new Intl.DateTimeFormat(UI_LOCALE, {
+    timeZone,
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false
+  }).format(date);
+}
+
+function formatDateTimeForZone(date, timeZone){
+  return new Intl.DateTimeFormat(UI_LOCALE, {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false
+  }).format(date);
+}
+
+function getSourceTimeProfile(source){
+  const text = String(source || '').trim();
+  return SOURCE_TIME_PROFILES.find(profile => profile.pattern.test(text)) || { country: t('time.utc','协调世界时'), timeZone: 'UTC' };
+}
+
+function formatChinaOffsetLabel(timeZone, now = new Date()){
+  const diffHours = (getTimeZoneOffsetMinutes(now, timeZone) - getTimeZoneOffsetMinutes(now, CHINA_TIMEZONE)) / 60;
+  if (Math.abs(diffHours) < 0.01) return `${t('dashboard.chinaDelta','对中时差')} ±0h`;
+  const absHours = Math.abs(diffHours);
+  const hoursText = Number.isInteger(absHours) ? absHours.toFixed(0) : absHours.toFixed(1);
+  return `${t('dashboard.chinaDelta','对中时差')} ${diffHours > 0 ? '+' : '-'}${hoursText}h`;
+}
+
+function buildSourceClockLabel(source, now = new Date()){
+  const profile = getSourceTimeProfile(source);
+  return `${profile.country} ${formatClockForZone(now, profile.timeZone)} · ${formatChinaOffsetLabel(profile.timeZone, now)}`;
+}
+
+function getLagLabel(timestamp, now = new Date()){
+  const ts = makeDate(timestamp);
+  if (!ts) return '--';
+  const diffMs = Math.max(0, now.getTime() - ts.getTime());
+  if (diffMs < 5000) return t('time.livePulse','实时更新');
+  const diffSeconds = Math.floor(diffMs / 1000);
+  if (diffSeconds < 60) return `${diffSeconds}${t('time.lagSeconds','秒')}`;
+  const diffMinutes = Math.floor(diffSeconds / 60);
+  if (diffMinutes < 60) return `${diffMinutes}${t('time.lagMinutes','分')} ${diffSeconds % 60}${t('time.lagSeconds','秒')}`;
+  return getAge(ts);
+}
+
+let dynamicClockTimer = null;
+
+function refreshDynamicTimeNodes(){
+  const now = new Date();
+  document.querySelectorAll('.js-system-clock').forEach(node => {
+    node.textContent = formatDateTimeForZone(now, CHINA_TIMEZONE);
+  });
+  document.querySelectorAll('.js-age').forEach(node => {
+    node.textContent = getAge(node.dataset.ts);
+  });
+  document.querySelectorAll('.js-lag').forEach(node => {
+    node.textContent = getLagLabel(node.dataset.ts, now);
+  });
+  document.querySelectorAll('.js-source-clock').forEach(node => {
+    node.textContent = buildSourceClockLabel(node.dataset.source, now);
+  });
+}
+
+function ensureDynamicClockTimer(){
+  if(dynamicClockTimer) return;
+  dynamicClockTimer = window.setInterval(refreshDynamicTimeNodes, 1000);
+}
 
 // === GLOBALS ===
 let globe = null;
@@ -396,118 +538,124 @@ let lowPerfMode = localStorage.getItem('crucix_low_perf') === 'true';
 let isFlat = shouldStartFlat();
 let currentRegion = 'world';
 let flatSvg, flatProjection, flatPath, flatG, flatZoom, flatW, flatH;
+const BOOTSTRAP_AIR_CACHE = {
+  air: Array.isArray(D?.air) ? JSON.parse(JSON.stringify(D.air)) : [],
+  airMeta: D?.airMeta ? JSON.parse(JSON.stringify(D.airMeta)) : null,
+  timestamp: D?.meta?.timestamp || null,
+  source: '启动缓存'
+};
 const signalGuideItems = [
   {
-    term:'No Callsign',
-    category:'Air',
-    meaning:'OpenSky received an aircraft track without a usable callsign or flight ID in that record.',
-    matters:'Useful as an opacity signal. A cluster of missing callsigns can indicate incomplete transponder metadata or less transparent traffic.',
-    notMeaning:'Not proof of military, covert, or hostile activity on its own.',
-    example:'South China Sea: No Callsign 6 of 152 means 6 tracks in that theater had no usable callsign in the feed.'
+    term:'无呼号',
+    category:'空域',
+    meaning:'OpenSky 在该记录中收到了没有有效呼号或航班 ID 的航空器轨迹。',
+    matters:'它可以作为透明度信号使用。无呼号数量集中增多，往往意味着应答机元数据不完整，或者该区域交通透明度偏低。',
+    notMeaning:'它本身并不能证明是军机、隐蔽飞行或敌对活动。',
+    example:'南海战区显示无呼号 6/152，表示该区域 152 条轨迹里有 6 条没有可用呼号。'
   },
   {
-    term:'High Altitude',
-    category:'Air',
-    meaning:'Aircraft above 12,000 meters, roughly 39,000 feet, in the current OpenSky snapshot.',
-    matters:'Separates cruise-level traffic from lower-altitude local or regional movement.',
-    notMeaning:'Not a danger score and not inherently unusual. Commercial jets commonly operate here.',
-    example:'High Altitude 2 means only 2 tracked aircraft in that hotspot were above the cruise threshold at that snapshot.'
+    term:'高空目标',
+    category:'空域',
+    meaning:'指当前 OpenSky 快照中高度超过 12000 米、约 39000 英尺的航空器。',
+    matters:'它帮助区分巡航高度交通和较低高度的本地或区域活动。',
+    notMeaning:'它不是危险评分，也不天然异常。民航客机常常处于这个高度。',
+    example:'高空目标 2，表示该热点在当前快照里只有 2 架航空器位于巡航高度以上。'
   },
   {
-    term:'Top Countries',
-    category:'Air',
-    meaning:'The most common OpenSky origin_country values among aircraft in that hotspot.',
-    matters:'Useful for understanding the rough composition of traffic flowing through a theater.',
-    notMeaning:'Not who is controlling the aircraft right now and not a direct indicator of military ownership.',
-    example:'China (61), Philippines (39), Taiwan (17) means those were the top registered origin countries in the snapshot.'
+    term:'主要国家',
+    category:'空域',
+    meaning:'指该热点内航空器的 OpenSky origin_country 中出现频率最高的国家。',
+    matters:'它可以帮助快速理解一个战区内交通构成的大致来源。',
+    notMeaning:'它不代表谁正在实时控制这些飞机，也不直接说明军用归属。',
+    example:'中国 61、菲律宾 39、台湾 17，表示这三个注册来源在当前快照中占比最高。'
   },
   {
     term:'FRP',
-    category:'Thermal',
-    meaning:'Fire Radiative Power. This is the intensity of one specific FIRMS hotspot, measured in megawatts.',
-    matters:'Higher FRP usually means a hotter, larger, or more energetic fire event at that exact point.',
-    notMeaning:'Not the intensity of the whole region and not automatic proof of conflict activity.',
-    example:'Sudan / Horn of Africa: FRP 92.3 MW describes that one hotspot, while Total 1,451 describes the entire regional detection count.'
+    category:'热源',
+    meaning:'Fire Radiative Power，即火点辐射功率，表示某一个 FIRMS 热点的强度，单位是兆瓦。',
+    matters:'FRP 越高，通常说明该点位的火势更热、更大或能量更强。',
+    notMeaning:'它不代表整个区域的总强度，也不自动等同于冲突活动。',
+    example:'苏丹/非洲之角 FRP 92.3 MW 仅描述一个热点，而总量 1451 描述的是整个区域的热源计数。'
   },
   {
-    term:'Total Detections',
-    category:'Thermal',
-    meaning:'The total number of FIRMS thermal detections in the entire region bucket for the current sweep.',
-    matters:'Useful for spotting unusually active fire clusters, especially when compared with historical baselines or night activity.',
-    notMeaning:'Not a count for the single map point you clicked and not necessarily a conflict count.',
-    example:'Total 1,451 means the whole Sudan / Horn of Africa bucket had 1,451 detections in that sweep.'
+    term:'总探测数',
+    category:'热源',
+    meaning:'指当前扫描周期内，该区域桶中所有 FIRMS 热源探测的总数量。',
+    matters:'它适合用来观察异常活跃的火点簇，尤其是和历史基线或夜间活动做对比时。',
+    notMeaning:'它不是你点击的单个地图点位的计数，也不一定等于冲突数量。',
+    example:'总探测数 1451，表示本轮扫描里苏丹/非洲之角整个区域共有 1451 个热源探测。'
   },
   {
-    term:'Night Detections',
-    category:'Thermal',
-    meaning:'Thermal detections tagged as occurring at night inside the broader FIRMS region bucket.',
-    matters:'Nighttime heat can be more noteworthy because it is less likely to be routine daytime land burning.',
-    notMeaning:'Not a direct combat indicator. It still needs context from location, baseline, and corroborating sources.',
-    example:'Night 140 means 140 of the 1,451 regional detections were nighttime detections in that sweep.'
+    term:'夜间探测',
+    category:'热源',
+    meaning:'指 FIRMS 区域桶中被标记为夜间发生的热源探测。',
+    matters:'夜间热源通常更值得关注，因为它比白天常规烧荒更不常见。',
+    notMeaning:'它不是直接的交战指标，仍然需要结合地理位置、基线和其他来源交叉验证。',
+    example:'夜间探测 140，表示该区域 1451 个热源中有 140 个发生在夜间。'
   },
   {
-    term:'Chokepoint',
-    category:'Maritime',
-    meaning:'A strategic maritime corridor or passage where trade and energy flows can be delayed, diverted, or disrupted.',
-    matters:'These nodes matter because a disruption here can affect shipping costs, transit times, and commodity pricing globally.',
-    notMeaning:'Not proof that disruption is happening now. It is a strategic watch location.',
-    example:'Bab el-Mandeb or the Strait of Hormuz matter because shipping and energy flows concentrate there.'
+    term:'咽喉点',
+    category:'海事',
+    meaning:'指贸易和能源流动容易被延迟、绕行或中断的关键海上通道。',
+    matters:'这些节点很重要，因为一旦受扰，往往会影响全球航运成本、运输时效和大宗商品定价。',
+    notMeaning:'它不表示此刻一定已经发生中断，它首先是战略观察位置。',
+    example:'曼德海峡或霍尔木兹海峡之所以重要，是因为能源和航运流量高度集中。'
   },
   {
-    term:'SDR Receiver',
-    category:'Signals',
-    meaning:'A publicly reachable software-defined radio receiver in or near a region of interest.',
-    matters:'Dense receiver coverage can give you more ability to monitor communications or signal activity in a theater.',
-    notMeaning:'Not evidence of hostile emissions or a threat by itself. It is an observation and monitoring layer.',
-    example:'South China Sea SDR count means publicly accessible KiwiSDR receivers are available in or near that zone.'
+    term:'SDR 接收机',
+    category:'信号',
+    meaning:'指目标区域内或附近可公开访问的软件定义无线电接收机。',
+    matters:'接收机覆盖越密，越有利于监测一个战区内的通信或无线电活动。',
+    notMeaning:'它本身不是敌对发射或威胁证据，而是观测层。',
+    example:'南海 SDR 数量较高，意味着该区域附近存在较多可公开访问的 KiwiSDR 接收机。'
   },
   {
     term:'CPM',
-    category:'Radiation',
-    meaning:'Counts per minute from a radiation monitoring source, used here for relative radiation status at a site.',
-    matters:'Useful for spotting anomalies against the site’s normal range or comparing consecutive readings.',
-    notMeaning:'Not a direct safety verdict on its own. Interpretation depends on local baseline and trend, not the raw number alone.',
-    example:'A site reading 33 CPM can be normal if that location’s usual background level is in the same range.'
+    category:'辐射',
+    meaning:'每分钟计数，用于描述某辐射监测点位的相对辐射状态。',
+    matters:'它适合用于发现偏离站点常态区间的异常，或比较相邻时间的连续变化。',
+    notMeaning:'它本身不是安全结论，必须结合当地基线和趋势解释，不能只看原始数值。',
+    example:'某站点读数 33 CPM 可能完全正常，前提是该地平时背景值就在这一范围。'
   },
   {
     term:'HY Spread',
-    category:'Macro',
-    meaning:'High-yield credit spread, shown here as a stress proxy from FRED credit data.',
-    matters:'When spreads widen, markets are usually pricing more credit stress and tighter financial conditions.',
-    notMeaning:'Not a recession call by itself. It is one stress signal among many.',
-    example:'A rising HY Spread alongside higher VIX and weaker equities is a stronger risk-off pattern than HY alone.'
+    category:'宏观',
+    meaning:'高收益信用利差，这里作为来自 FRED 的市场压力代理指标。',
+    matters:'当利差走阔时，通常意味着市场正在计入更高的信用压力和更紧的金融条件。',
+    notMeaning:'它不能单独定义衰退，只是多种压力信号中的一种。',
+    example:'如果 HY 利差走高，同时 VIX 上升、股市走弱，那么风险偏空信号会比单看 HY 更强。'
   },
   {
     term:'VIX',
-    category:'Macro',
-    meaning:'The CBOE Volatility Index, commonly used as a market-implied fear or volatility gauge.',
-    matters:'Higher VIX often means more expected equity volatility and more defensive market positioning.',
-    notMeaning:'Not a direct forecast of a crash and not a geopolitical indicator by itself.',
-    example:'VIX above 20 with widening HY spreads is a stronger stress pattern than VIX alone.'
+    category:'宏观',
+    meaning:'芝商所波动率指数，常被视为市场隐含恐慌或波动预期的代表。',
+    matters:'VIX 越高，通常意味着股市未来波动预期更高、市场仓位更偏防守。',
+    notMeaning:'它不是崩盘的直接预告，也不是单独的地缘政治指标。',
+    example:'VIX 高于 20，且 HY 利差同步走阔时，压力模式比单看 VIX 更强。'
   },
   {
     term:'GSCPI',
-    category:'Macro',
-    meaning:'The Global Supply Chain Pressure Index, a broad indicator of global supply-chain strain.',
-    matters:'It helps translate geopolitical or weather disruptions into likely pressure on shipping, inventory, and pricing.',
-    notMeaning:'Not a live market price and not a company-specific supply-chain score by itself.',
-    example:'A higher GSCPI makes route or energy shocks more likely to spill into broader cost pressure.'
+    category:'宏观',
+    meaning:'全球供应链压力指数，用来衡量全球供应链紧张程度。',
+    matters:'它有助于把地缘政治或天气扰动，转换成对航运、库存和价格的压力判断。',
+    notMeaning:'它不是实时市场价格，也不是某家公司的专属供应链评分。',
+    example:'GSCPI 越高，意味着航线或能源冲击更容易外溢成更广泛的成本压力。'
   },
   {
-    term:'WHO Alert',
-    category:'Health',
-    meaning:'A WHO Disease Outbreak News item or outbreak-related bulletin surfaced in the health layer.',
-    matters:'Useful for watching outbreaks that could affect travel, supply chains, humanitarian stress, or regional operating conditions.',
-    notMeaning:'Not a pandemic declaration and not automatically high severity.',
-    example:'A WHO alert in a port-heavy region matters more if it overlaps shipping, border controls, or local instability signals.'
+    term:'WHO 告警',
+    category:'卫生',
+    meaning:'指卫生图层中出现了 WHO 疫情新闻或与疫情相关的通报。',
+    matters:'它适合用来观察可能影响旅行、供应链、人道压力或地区运营条件的公共卫生事件。',
+    notMeaning:'它不是大流行声明，也不自动等于高严重度。',
+    example:'如果 WHO 告警出现在港口密集区域，并与航运、边控或地区不稳信号叠加，重要性会更高。'
   },
   {
-    term:'Sweep Delta',
-    category:'Platform',
-    meaning:'The change summary between the current sweep and the previous one, including new, escalated, and de-escalated signals.',
-    matters:'Useful for spotting what changed recently instead of re-reading the full dashboard from scratch.',
-    notMeaning:'Not a full risk model. It is a directional change layer on top of the raw signals.',
-    example:'A delta marked risk-off with several new and escalated items means the latest sweep materially worsened the signal mix.'
+    term:'扫描变化',
+    category:'平台',
+    meaning:'指当前扫描与上一轮扫描之间的变化摘要，包括新增、升级和缓和信号。',
+    matters:'它帮助你快速看到最近发生了什么变化，而不是每次都从头重读整块看板。',
+    notMeaning:'它不是完整风险模型，而是叠加在原始信号上的方向性变化层。',
+    example:'如果扫描变化显示风险偏空，且有多个新增和升级项，说明本轮扫描明显恶化了整体信号结构。'
   }
 ];
 const regionPOV = {
@@ -521,6 +669,81 @@ const regionPOV = {
 
 if(lowPerfMode) document.body.classList.add('low-perf');
 
+function cloneJson(value){
+  try{return JSON.parse(JSON.stringify(value));}catch{return null;}
+}
+
+function getAirLayerTotal(air){
+  return (air||[]).reduce((sum,item)=>sum+(item?.total||0),0);
+}
+
+function loadCachedAirLayer(){
+  try{
+    const raw=localStorage.getItem('crucix_last_good_air');
+    if(!raw) return null;
+    const parsed=JSON.parse(raw);
+    return Array.isArray(parsed?.air) && parsed.air.length ? parsed : null;
+  }catch{return null;}
+}
+
+function saveCachedAirLayer(payload){
+  if(getAirLayerTotal(payload?.air) <= 0) return;
+  try{
+    localStorage.setItem('crucix_last_good_air', JSON.stringify({
+      air: payload.air,
+      airMeta: payload.airMeta || null,
+      timestamp: payload.timestamp || null,
+      source: payload.source || '空域缓存'
+    }));
+  }catch{}
+}
+
+function applyClientSideFallbacks(data){
+  const next = data && typeof data === 'object' ? data : {};
+  const liveTotal = getAirLayerTotal(next.air);
+  if(liveTotal > 0){
+    saveCachedAirLayer({
+      air: next.air,
+      airMeta: next.airMeta,
+      timestamp: next.meta?.timestamp || next.airMeta?.timestamp || null,
+      source: next.airMeta?.source || 'OpenSky'
+    });
+    return next;
+  }
+  const cached = loadCachedAirLayer() || (getAirLayerTotal(BOOTSTRAP_AIR_CACHE.air) > 0 ? BOOTSTRAP_AIR_CACHE : null);
+  if(!cached) return next;
+  next.air = cloneJson(cached.air) || cached.air;
+  next.airMeta = {
+    ...(next.airMeta || {}),
+    fallback: true,
+    cachedVisual: true,
+    liveTotal,
+    source: cached.source || '空域缓存',
+    timestamp: cached.timestamp || next.airMeta?.timestamp || next.meta?.timestamp || null
+  };
+  return next;
+}
+
+function signalToText(value){
+  if(typeof value === 'string') return value;
+  if(value && typeof value.signal === 'string') return value.signal;
+  if(value && typeof value.label === 'string') return value.label;
+  return '';
+}
+
+function formatSignalList(values, limit=2){
+  return (values||[]).map(signalToText).filter(Boolean).slice(0,limit).join('<br>');
+}
+
+function formatSeverityLabel(severity){
+  const key=String(severity||'').toLowerCase();
+  if(key==='critical') return '关键';
+  if(key==='high') return '高危';
+  if(key==='medium') return '中危';
+  if(key==='low') return '低危';
+  return '未知';
+}
+
 function isWeakMobileDevice(){
   const reducedMotion = typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const memory = navigator.deviceMemory || 0;
@@ -533,7 +756,7 @@ function shouldStartFlat(){
   return lowPerfMode || isWeakMobileDevice();
 }
 
-function setMapLoading(show, text='Initializing 3D Globe'){
+function setMapLoading(show, text=t('map.loading','正在载入三维地球')){
   const overlay = document.getElementById('mapLoading');
   const label = document.getElementById('mapLoadingText');
   if(!overlay || !label) return;
@@ -541,15 +764,33 @@ function setMapLoading(show, text='Initializing 3D Globe'){
   overlay.classList.toggle('show', show);
 }
 
+function getMapToggleLabel(){
+  return isFlat ? t('map.globeMode','地球模式') : t('map.flatMode','平面模式');
+}
+
+function getMapHintLabel(loadFailed=false){
+  if(loadFailed) return '三维加载失败 · 已切换平面模式';
+  return isFlat ? '拖拽平移 · +/- 缩放' : '拖拽旋转 · +/- 缩放';
+}
+
+function syncMapUiText(loadFailed=false){
+  const projToggle = document.getElementById('projToggle');
+  const mapHint = document.getElementById('mapHint');
+  const flightToggle = document.getElementById('flightToggle');
+  if(projToggle) projToggle.textContent = getMapToggleLabel();
+  if(mapHint) mapHint.textContent = getMapHintLabel(loadFailed);
+  if(flightToggle) flightToggle.title = flightsVisible ? '隐藏航路' : '显示航路';
+}
+
 function togglePerfMode(){
   lowPerfMode = !lowPerfMode;
   localStorage.setItem('crucix_low_perf', String(lowPerfMode));
   document.body.classList.toggle('low-perf', lowPerfMode);
   const perfStatus = document.getElementById('perfStatus');
-  if(perfStatus) perfStatus.textContent = lowPerfMode ? 'LITE' : 'FULL';
+  if(perfStatus) perfStatus.textContent = lowPerfMode ? t('dashboard.visualsLite','轻流线') : t('dashboard.visualsFull','全流线');
   if(globe){
     globe.controls().autoRotate = !lowPerfMode;
-    globe.arcDashAnimateTime(lowPerfMode ? 0 : 2000);
+    globe.arcDashAnimateTime(lowPerfMode ? 0 : 2600);
   }
   if(lowPerfMode && isMobileLayout() && !isFlat){
     toggleMapMode();
@@ -561,8 +802,16 @@ function togglePerfMode(){
 
 // === TOPBAR ===
 function getRegionControlsMarkup(){
+  const labels = {
+    world: t('regions.global','全球'),
+    americas: t('regions.americas','美洲'),
+    europe: t('regions.europe','欧洲'),
+    middleEast: t('regions.middleEast','中东'),
+    asiaPacific: t('regions.asiaPacific','亚太'),
+    africa: t('regions.africa','非洲')
+  };
   return ['world','americas','europe','middleEast','asiaPacific','africa'].map(r=>
-    `<button class="region-btn ${r===currentRegion?'active':''}" data-region="${r}" onclick="setRegion('${r}')">${r==='middleEast'?'MIDDLE EAST':r==='asiaPacific'?'ASIA PACIFIC':r.toUpperCase()}</button>`
+    `<button class="region-btn ${r===currentRegion?'active':''}" data-region="${r}" onclick="setRegion('${r}')">${labels[r]}</button>`
   ).join('');
 }
 
@@ -580,41 +829,47 @@ function renderRegionControls(){
 
 function renderTopbar(){
   const mobile = isMobileLayout();
-  const ts = new Date(D.meta.timestamp);
-  const d = ts.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}).toUpperCase();
-  const timeStr = ts.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',hour12:true});
+  const sweepTimestamp = D.meta?.timestamp || D.airMeta?.timestamp || null;
   document.getElementById('topbar').innerHTML=`
     <div class="top-left">
-      <span class="brand">CRUCIX MONITOR</span>
-      <span class="regime-chip"><span class="blink"></span>WARTIME STAGFLATION RISK</span>
+      <span class="brand">CRUCIX 监测终端</span>
+      <span class="regime-chip"><span class="blink"></span>战时滞胀风险</span>
     </div>
     ${mobile ? `<div class="top-center">${getRegionControlsMarkup()}</div>` : ''}
     <div class="top-right">
-      <button class="meta-pill perf-pill" onclick="togglePerfMode()" title="Reduce visual effects and start mobile in flat mode">${t('dashboard.visuals','VISUALS')} <span class="v" id="perfStatus">${lowPerfMode?t('dashboard.visualsLite','LITE'):t('dashboard.visualsFull','FULL')}</span></button>
-      <span class="meta-pill">${t('dashboard.sweep','SWEEP')} <span class="v">${(D.meta.totalDurationMs/1000).toFixed(1)}s</span></span>
-      <span class="meta-pill">${d} <span class="v">${timeStr}</span></span>
-      <span class="meta-pill">${t('dashboard.sources','SOURCES')} <span class="v">${D.meta.sourcesOk}/${D.meta.sourcesQueried}</span></span>
-      ${D.delta?.summary ? `<span class="meta-pill">${t('dashboard.delta','DELTA')} <span class="v">${D.delta.summary.direction==='risk-off'?'&#x25B2; '+t('dashboard.riskOff','RISK-OFF'):D.delta.summary.direction==='risk-on'?'&#x25BC; '+t('dashboard.riskOn','RISK-ON'):'&#x25C6; '+t('dashboard.mixed','MIXED')}</span></span>` : ''}
-      <button class="guide-btn" onclick="openGlossary()">${t('dashboard.guideBtn','What Signals Mean')}</button>
-      <span class="alert-badge">${t('dashboard.highAlert','HIGH ALERT')}</span>
+      <button class="meta-pill perf-pill" onclick="togglePerfMode()" title="降低视觉负载，并在移动端优先使用平面模式">${t('dashboard.visuals','动态链路')} <span class="v" id="perfStatus">${lowPerfMode?t('dashboard.visualsLite','轻流线'):t('dashboard.visualsFull','全流线')}</span></button>
+      <span class="meta-pill">扫描 <span class="v">${(D.meta.totalDurationMs/1000).toFixed(1)}s</span></span>
+      <span class="meta-pill">${t('dashboard.beijingTime','北京时间')} <span class="v js-system-clock">${formatDateTimeForZone(new Date(), CHINA_TIMEZONE)}</span></span>
+      ${sweepTimestamp ? `<span class="meta-pill">${t('dashboard.dataLag','信息时差')} <span class="v js-lag" data-ts="${escapeAttr(sweepTimestamp)}">${getLagLabel(sweepTimestamp)}</span></span>` : ''}
+      <span class="meta-pill">${t('dashboard.sources','源')} <span class="v">${D.meta.sourcesOk}/${D.meta.sourcesQueried}</span></span>
+      ${D.delta?.summary ? `<span class="meta-pill">波动 <span class="v">${D.delta.summary.direction==='risk-off'?'&#x25B2; '+t('dashboard.riskOff','风险偏空'):D.delta.summary.direction==='risk-on'?'&#x25BC; '+t('dashboard.riskOn','风险回暖'):'&#x25C6; '+t('dashboard.mixed','混合波动')}</span></span>` : ''}
+      <button class="guide-btn" onclick="openGlossary()">信号说明</button>
+      <span class="alert-badge">高警戒</span>
     </div>`;
   renderRegionControls();
 }
 
 // === LEFT RAIL ===
 function renderLeftRail(){
-  const totalAir=D.air.reduce((s,a)=>s+a.total,0);
+  const totalAir=getAirLayerTotal(D.air);
   const totalThermal=D.thermal.reduce((s,t)=>s+t.det,0);
   const totalNight=D.thermal.reduce((s,t)=>s+t.night,0);
   const newsCount=(D.news||[]).length;
   const conflictEvents = D.acled?.totalEvents || 0;
   const conflictFatal = D.acled?.totalFatalities || 0;
+  const disaster = D.disaster || {};
+  const cyber = D.cyber || {};
+  const quakeCount = disaster.quakeCount24h || 0;
+  const naturalEvents = disaster.openEvents || 0;
+  const cyberLoad = (cyber.summary?.critical || 0) + (cyber.summary?.high || 0);
   const layers=[
-    {name:t('layers.airActivity','Air Activity'),count:totalAir,dot:'air',sub:`${D.air.length} ${t('layers.theaters','theaters')}`},
+    {name:t('layers.airActivity','空域活动'),count:totalAir,dot:'air',sub:`${D.air.length} ${t('layers.theaters','战区')}${D.airMeta?.cachedVisual?' · 缓存':''}`},
     {name:t('layers.thermalSpikes','Thermal Spikes'),count:totalThermal.toLocaleString(),dot:'thermal',sub:`${totalNight.toLocaleString()} ${t('layers.nightDet','night det.')}`},
     {name:t('layers.sdrCoverage','SDR Coverage'),count:D.sdr.total,dot:'sdr',sub:`${D.sdr.online} ${t('layers.online','online')}`},
     {name:t('layers.maritimeWatch','Maritime Watch'),count:D.chokepoints.length,dot:'maritime',sub:t('layers.chokepoints','chokepoints')},
     {name:t('layers.nuclearSites','Nuclear Sites'),count:D.nuke.length,dot:'nuke',sub:t('layers.monitors','monitors')},
+    {name:t('layers.disasterWatch','Disaster Watch'),count:quakeCount,dot:'disaster',sub:`${naturalEvents} ${t('layers.openEvents','open events')}`},
+    {name:t('layers.cyberThreats','Cyber Threats'),count:cyberLoad,dot:'cyber',sub:`${cyber.summary?.kevRecent||0} ${t('layers.exploited','exploited')}`},
     {name:t('layers.conflictEvents','Conflict Events'),count:conflictEvents,dot:'thermal',sub:`${conflictFatal.toLocaleString()} ${t('layers.fatalities','fatalities')}`},
     {name:t('layers.healthWatch','Health Watch'),count:D.who.length,dot:'health',sub:t('layers.whoAlerts','WHO alerts')},
     {name:t('layers.worldNews','World News'),count:newsCount,dot:'news',sub:t('layers.rssGeolocated','RSS geolocated')},
@@ -622,13 +877,23 @@ function renderLeftRail(){
     {name:t('layers.spaceActivity','Satellites'),count:D.space?.militarySats||0,dot:'space',sub:`${D.space?.totalNewObjects||0} ${t('space.newLast30d','new (30d)')}`}
   ];
   const allNormal=D.nuke.every(s=>!s.anom);
-  const nukeHtml=D.nuke.map(s=>`<div class="site-row"><span>${s.site}</span><span class="site-val">${s.n>0?(s.cpm?.toFixed(1)||'--')+' CPM':'No data'}</span></div>`).join('');
+  const nukeHtml=D.nuke.map(s=>`<div class="site-row"><span>${s.site}</span><span class="site-val">${s.n>0?(s.cpm?.toFixed(1)||'--')+' CPM':'无数据'}</span></div>`).join('');
+  const disasterCategories = Object.entries(disaster.categories || {}).sort((a,b)=>b[1]-a[1]).slice(0,3);
+  const disasterSignals = formatSignalList(disaster.signals || [], 2);
   const vix=D.fred.find(f=>f.id==='VIXCLS');
   const hy=D.fred.find(f=>f.id==='BAMLH0A0HYM2');
   const usd=D.fred.find(f=>f.id==='DTWEXBGS');
   const m2=D.fred.find(f=>f.id==='M2SL');
   const mort=D.fred.find(f=>f.id==='MORTGAGE30US');
   const claims=D.fred.find(f=>f.id==='ICSA');
+  const nextLaunch = D.space?.upcomingLaunches?.[0];
+  const topSpaceHeadline = D.space?.headlines?.[0];
+  const m2Text = Number.isFinite(m2?.value) ? `$${(m2.value/1000).toFixed(1)}T` : '--';
+  const issText = Number.isFinite(D.space?.issAltitudeKm)
+    ? `ALT ${D.space.issAltitudeKm.toFixed(0)} km`
+    : D.space?.issPosition
+      ? `LAT ${D.space.issPosition.lat.toFixed(1)}°`
+      : '实时轨迹';
 
   document.getElementById('leftRail').innerHTML=`
     <div class="g-panel">
@@ -641,26 +906,40 @@ function renderLeftRail(){
       ${nukeHtml}
     </div>
     <div class="g-panel">
+      <div class="sec-head"><h3>${t('panels.disasterWatch','Disaster Watch')}</h3><span class="badge">USGS + EONET</span></div>
+      <div class="econ-row"><span class="elabel">${t('disaster.quakes24h','Quakes 24h')}</span><span class="eval">${quakeCount}</span></div>
+      <div class="econ-row"><span class="elabel">${t('disaster.maxMagnitude','Max Magnitude')}</span><span class="eval" style="color:${(disaster.maxMagnitude24h||0)>=6?'var(--warn)':'var(--accent2)'}">${disaster.maxMagnitude24h?disaster.maxMagnitude24h.toFixed(1):'--'}</span></div>
+      <div class="econ-row"><span class="elabel">${t('disaster.significant','Significant')}</span><span class="eval">${disaster.significantQuakes||0}</span></div>
+      <div class="econ-row"><span class="elabel">${t('disaster.openEvents','Open Natural Events')}</span><span class="eval">${naturalEvents}</span></div>
+      <div class="econ-row"><span class="elabel">${t('disaster.tsunami','Tsunami Flags')}</span><span class="eval">${disaster.tsunamiCount||0}</span></div>
+      ${disasterCategories.map(([name,count])=>`<div class="econ-row"><span class="elabel" style="padding-left:8px">${name}</span><span class="eval" style="font-size:10px">${count}</span></div>`).join('')}
+      ${disasterSignals ? `<div style="margin-top:6px;padding:6px 8px;border:1px solid rgba(255,128,171,0.16);background:rgba(255,128,171,0.05);font-family:var(--mono);font-size:9px;color:#ffc1d5;line-height:1.5">${disasterSignals}</div>` : ''}
+    </div>
+    <div class="g-panel">
       <div class="sec-head"><h3>${t('panels.riskGauges','Risk Gauges')}</h3><span class="badge">${t('badges.stress','STRESS')}</span></div>
-      <div class="econ-row"><span class="elabel">${t('metrics.vix','VIX')} (Fear)</span><span class="eval" style="color:${vix?.value>20?'var(--warn)':'var(--accent)'}">${vix?.value||'--'}</span></div>
+      <div class="econ-row"><span class="elabel">${t('metrics.vix','VIX')}（恐慌）</span><span class="eval" style="color:${vix?.value>20?'var(--warn)':'var(--accent)'}">${vix?.value||'--'}</span></div>
       <div class="econ-row"><span class="elabel">${t('metrics.hySpread','HY Spread')}</span><span class="eval">${hy?.value||'--'}</span></div>
       <div class="econ-row"><span class="elabel">${t('metrics.usdIndex','USD Index')}</span><span class="eval">${usd?.value?.toFixed(1)||'--'}</span></div>
       <div class="econ-row"><span class="elabel">${t('metrics.joblessClaims','Jobless Claims')}</span><span class="eval">${claims?.value?.toLocaleString()||'--'}</span></div>
       <div class="econ-row"><span class="elabel">${t('metrics.mortgage30y','30Y Mortgage')}</span><span class="eval">${mort?.value||'--'}%</span></div>
-      <div class="econ-row"><span class="elabel">${t('metrics.m2Supply','M2 Supply')}</span><span class="eval">$${(m2?.value/1000)?.toFixed(1)||'--'}T</span></div>
-      <div class="econ-row"><span class="elabel">${t('metrics.natDebt','Nat. Debt')}</span><span class="eval">$${(parseFloat(D.treasury.totalDebt)/1e12).toFixed(2)}T</span></div>
+      <div class="econ-row"><span class="elabel">${t('metrics.m2Supply','M2 Supply')}</span><span class="eval">${m2Text}</span></div>
+      <div class="econ-row"><span class="elabel">${t('metrics.natDebt','国家债务')}</span><span class="eval">$${(parseFloat(D.treasury.totalDebt)/1e12).toFixed(2)}T</span></div>
     </div>
     <div class="g-panel">
-      <div class="sec-head"><h3>${t('panels.spaceWatch','Space Watch')}</h3><span class="badge">${t('badges.orbital','CELESTRAK')}</span></div>
+      <div class="sec-head"><h3>${t('panels.spaceWatch','Space Watch')}</h3><span class="badge">${t('badges.orbital','ORBITAL')}</span></div>
       ${D.space ? `
-        <div class="econ-row"><span class="elabel">New Objects (30d)</span><span class="eval" style="color:var(--accent2)">${D.space.totalNewObjects||0}</span></div>
-        <div class="econ-row"><span class="elabel">Military Sats</span><span class="eval">${D.space.militarySats||0}</span></div>
+        <div class="econ-row"><span class="elabel">近 30 天新增</span><span class="eval" style="color:var(--accent2)">${D.space.totalNewObjects||0}</span></div>
+        <div class="econ-row"><span class="elabel">军用卫星</span><span class="eval">${D.space.militarySats||0}</span></div>
         <div class="econ-row"><span class="elabel">Starlink</span><span class="eval">${D.space.constellations?.starlink||0}</span></div>
         <div class="econ-row"><span class="elabel">OneWeb</span><span class="eval">${D.space.constellations?.oneweb||0}</span></div>
-        ${D.space.iss ? `<div class="econ-row"><span class="elabel">ISS</span><span class="eval" style="color:var(--accent)">ALT ${((D.space.iss.apogee+D.space.iss.perigee)/2).toFixed(0)} km</span></div>` : ''}
-        ${Object.entries(D.space.militaryByCountry||{}).sort((a,b)=>b[1]-a[1]).slice(0,4).map(([c,n])=>`<div class="econ-row"><span class="elabel" style="padding-left:8px">${c}</span><span class="eval" style="font-size:10px">${n} mil sats</span></div>`).join('')}
-        ${(D.space.signals||[]).length ? `<div style="margin-top:6px;padding:6px 8px;border:1px solid rgba(68,204,255,0.2);background:rgba(68,204,255,0.04);font-family:var(--mono);font-size:9px;color:var(--accent2);line-height:1.5">${D.space.signals.slice(0,2).join('<br>')}</div>` : ''}
-      ` : '<div style="font-family:var(--mono);font-size:10px;color:var(--dim)">NO SPACE DATA</div>'}
+        <div class="econ-row"><span class="elabel">待发射任务</span><span class="eval">${D.space.upcomingCount||0}</span></div>
+        <div class="econ-row"><span class="elabel">未来 72 小时</span><span class="eval">${D.space.next72h||0}</span></div>
+        ${D.space.iss ? `<div class="econ-row"><span class="elabel">ISS</span><span class="eval" style="color:var(--accent)">${issText}</span></div>` : ''}
+        ${Object.entries(D.space.militaryByCountry||{}).sort((a,b)=>b[1]-a[1]).slice(0,4).map(([c,n])=>`<div class="econ-row"><span class="elabel" style="padding-left:8px">${c}</span><span class="eval" style="font-size:10px">${n} 军用星</span></div>`).join('')}
+        ${nextLaunch ? `<div style="margin-top:6px;padding:6px 8px;border:1px solid rgba(255,255,255,0.06);background:rgba(255,255,255,0.02)"><div style="font-family:var(--mono);font-size:9px;color:var(--accent2);letter-spacing:0.08em;text-transform:uppercase">下一次发射 · ${getAge(nextLaunch.net)}</div><div style="font-size:11px;line-height:1.35;margin-top:4px">${nextLaunch.name}</div><div style="font-family:var(--mono);font-size:9px;color:var(--dim);margin-top:4px">${nextLaunch.provider||'未知'}${nextLaunch.pad?` · ${nextLaunch.pad}`:''}</div></div>` : ''}
+        ${topSpaceHeadline ? `<div style="margin-top:6px;padding:6px 8px;border:1px solid rgba(68,204,255,0.16);background:rgba(68,204,255,0.04)"><div style="font-family:var(--mono);font-size:9px;color:var(--accent);letter-spacing:0.08em;text-transform:uppercase">航天快讯</div><div style="font-size:11px;line-height:1.35;margin-top:4px">${cleanText(topSpaceHeadline.title)}</div></div>` : ''}
+        ${(D.space.signals||[]).length ? `<div style="margin-top:6px;padding:6px 8px;border:1px solid rgba(68,204,255,0.2);background:rgba(68,204,255,0.04);font-family:var(--mono);font-size:9px;color:var(--accent2);line-height:1.5">${formatSignalList(D.space.signals, 3)}</div>` : ''}
+      ` : '<div style="font-family:var(--mono);font-size:10px;color:var(--dim)">暂无太空数据</div>'}
     </div>`;
 }
 
@@ -680,26 +959,25 @@ function bindMapLifecycleEvents(){
 
 function renderMapLegend(){
   document.getElementById('mapLegend').innerHTML=
-    [{c:'#64f0c8',l:t('map.airTraffic','Air Traffic')},{c:'#ff5f63',l:t('map.thermalFire','Thermal/Fire')},{c:'rgba(255,120,80,0.8)',l:t('map.conflict','Conflict')},{c:'#44ccff',l:t('map.sdrReceiver','SDR Receiver')},
-     {c:'#ffe082',l:t('map.nuclearSite','Nuclear Site')},{c:'#b388ff',l:t('map.chokepoint','Chokepoint')},{c:'#ffb84c',l:t('map.osintEvent','OSINT Event')},{c:'#69f0ae',l:t('map.healthAlert','Health Alert')},{c:'#81d4fa',l:t('map.worldNews','World News')},{c:'#ff9800',l:t('map.weatherAlert','Weather Alert')},{c:'#cddc39',l:t('map.epaRadNet','EPA RadNet')},{c:'#ffffff',l:t('map.spaceStation','Space Station')},{c:'#6495ed',l:t('map.gdeltEvent','GDELT Event')}]
+    [{c:'#64f0c8',l:t('map.airTraffic','空域活动')},{c:'#ff5f63',l:t('map.thermalFire','热源/火点')},{c:'rgba(255,120,80,0.8)',l:t('map.conflict','冲突')},{c:'#44ccff',l:t('map.sdrReceiver','SDR 接收机')},
+     {c:'#ffe082',l:t('map.nuclearSite','核设施')},{c:'#b388ff',l:t('map.chokepoint','海上咽喉点')},{c:'#ffb84c',l:t('map.osintEvent','情报事件')},{c:'#69f0ae',l:t('map.healthAlert','卫生告警')},{c:'#81d4fa',l:t('map.worldNews','全球新闻')},{c:'#ff9800',l:t('map.weatherAlert','天气告警')},{c:'#cddc39',l:t('map.epaRadNet','辐射站')},{c:'#ff80ab',l:t('map.earthquake','地震')},{c:'#26a69a',l:t('map.naturalEvent','自然事件')},{c:'#ffffff',l:t('map.spaceStation','空间站')},{c:'#6495ed',l:t('map.gdeltEvent','GDELT 事件')}]
     .map(x=>`<div class="leg-item"><div class="leg-dot" style="background:${x.c}"></div>${x.l}</div>`).join('');
 }
 
 function initMap(){
   bindMapLifecycleEvents();
   renderMapLegend();
+  syncMapUiText();
   if(isFlat){
     if(globe && typeof globe.pauseAnimation === 'function') globe.pauseAnimation();
     document.getElementById('globeViz').style.display = 'none';
     document.getElementById('flatMapSvg').style.display = 'block';
-    document.getElementById('projToggle').textContent = 'GLOBE MODE';
-    document.getElementById('mapHint').textContent = 'SCROLL TO ZOOM · DRAG TO PAN';
     if(!flatSvg) initFlatMap();
     else { flatG.selectAll('*').remove(); drawFlatMap(); }
     setMapLoading(false);
     return;
   }
-  setMapLoading(true, 'Initializing 3D Globe');
+  setMapLoading(true, t('map.loading','正在载入三维地球'));
   requestAnimationFrame(() => {
     try {
       initGlobe();
@@ -708,8 +986,7 @@ function initMap(){
       isFlat = true;
       document.getElementById('globeViz').style.display = 'none';
       document.getElementById('flatMapSvg').style.display = 'block';
-      document.getElementById('projToggle').textContent = 'GLOBE MODE';
-      document.getElementById('mapHint').textContent = '3D LOAD FAILED · FLAT MODE';
+      syncMapUiText(true);
       if(!flatSvg) initFlatMap();
       else { flatG.selectAll('*').remove(); drawFlatMap(); }
       setMapLoading(false);
@@ -722,8 +999,7 @@ function initGlobe(){
     if(typeof globe.resumeAnimation === 'function') globe.resumeAnimation();
     document.getElementById('globeViz').style.display = 'block';
     document.getElementById('flatMapSvg').style.display = 'none';
-    document.getElementById('projToggle').textContent = 'FLAT MODE';
-    document.getElementById('mapHint').textContent = 'DRAG TO ROTATE · SCROLL TO ZOOM';
+    syncMapUiText();
     return;
   }
   const container = document.getElementById('mapContainer');
@@ -745,14 +1021,14 @@ function initGlobe(){
     .pointRadius(d => d.size || 0.3)
     .pointColor(d => d.color)
     .pointLabel(d => `<b>${d.popHead||''}</b><br><span style="opacity:0.7">${d.popMeta||''}</span>`)
-    .onPointClick((pt, ev) => { showPopup(ev, pt.popHead, pt.popText, pt.popMeta, pt.lat, pt.lng, pt.alt); })
+    .onPointClick((pt, ev) => { showPopup(ev, pt.popHead, pt.popText, pt.popMeta, pt.lat, pt.lng, pt.alt, pt.popUrl); })
     .onPointHover(pt => { document.getElementById('globeViz').style.cursor = pt ? 'pointer' : 'grab'; })
     // Arcs layer (flight corridors)
     .arcColor(d => d.color)
     .arcStroke(d => d.stroke || 0.4)
     .arcDashLength(0.4)
     .arcDashGap(0.2)
-    .arcDashAnimateTime(2000)
+    .arcDashAnimateTime(2600)
     .arcAltitudeAutoScale(0.3)
     .arcLabel(d => d.label || '')
     // Rings layer (pulsing conflict events)
@@ -804,6 +1080,7 @@ function initGlobe(){
   globe.controls().autoRotateSpeed = 0.3;
   globe.controls().enableDamping = true;
   globe.controls().dampingFactor = 0.1;
+  globe.controls().enableZoom = false;
 
   // Stop auto-rotate on interaction, resume after 10s
   let rotateTimeout;
@@ -819,7 +1096,7 @@ function initGlobe(){
   // Plot globe markers (preloaded but hidden)
   plotMarkers();
 
-  // Start in flat mode — hide globe, show flat map
+  // 平面模式启动时隐藏地球并显示平面地图
   if(isFlat){
     document.getElementById('globeViz').style.display = 'none';
     document.getElementById('flatMapSvg').style.display = 'block';
@@ -827,8 +1104,7 @@ function initGlobe(){
   } else {
     document.getElementById('globeViz').style.display = 'block';
     document.getElementById('flatMapSvg').style.display = 'none';
-    document.getElementById('projToggle').textContent = 'FLAT MODE';
-    document.getElementById('mapHint').textContent = 'DRAG TO ROTATE · SCROLL TO ZOOM';
+    syncMapUiText();
   }
 
   globeInitialized = true;
@@ -847,8 +1123,8 @@ function plotMarkers(){
       lat:c.lat, lng:c.lon, size:0.25+a.total/200, alt:0.015,
       color:'rgba(100,240,200,0.8)', type:'air', priority:1,
       label: a.region.replace(' Region','')+' '+a.total,
-      popHead: a.region, popMeta: 'Air Activity',
-      popText: `${a.total} aircraft tracked<br>No callsign: ${a.noCallsign}<br>High altitude: ${a.highAlt}<br>Top: ${a.top.slice(0,3).map(t=>t[0]+' ('+t[1]+')').join(', ')}`
+      popHead: a.region, popMeta: '空域活动',
+      popText: `${a.total} 架航空器<br>无呼号: ${a.noCallsign}<br>高空目标: ${a.highAlt}<br>主要来源: ${a.top.slice(0,3).map(t=>t[0]+' ('+t[1]+')').join(', ')}`
     });
     labels.push({lat:c.lat, lng:c.lon+2, text:a.region.replace(' Region','')+' '+a.total, size:0.35, color:'rgba(106,138,130,0.8)'});
   });
@@ -859,8 +1135,8 @@ function plotMarkers(){
       points.push({
         lat:f.lat, lng:f.lon, size:0.12+Math.min(f.frp/200,0.3), alt:0.008,
         color:'rgba(255,95,99,0.7)', type:'thermal', priority:3,
-        popHead:'Thermal Detection', popMeta:'FIRMS Satellite',
-        popText:`Region: ${t.region}<br>FRP: ${f.frp.toFixed(1)} MW<br>Total: ${t.det.toLocaleString()}<br>Night: ${t.night.toLocaleString()}`
+        popHead:'热源探测', popMeta:'FIRMS 卫星',
+        popText:`区域: ${t.region}<br>FRP: ${f.frp.toFixed(1)} MW<br>总量: ${t.det.toLocaleString()}<br>夜间: ${t.night.toLocaleString()}`
       });
     });
   });
@@ -870,7 +1146,7 @@ function plotMarkers(){
     points.push({
       lat:cp.lat, lng:cp.lon, size:0.35, alt:0.02,
       color:'rgba(179,136,255,0.8)', type:'maritime', priority:1,
-      popHead:cp.label, popMeta:'Maritime Intelligence', popText:cp.note
+      popHead:cp.label, popMeta:'海事情报', popText:cp.note
     });
     labels.push({lat:cp.lat, lng:cp.lon+1.5, text:cp.label, size:0.3, color:'rgba(179,136,255,0.6)'});
   });
@@ -882,8 +1158,8 @@ function plotMarkers(){
     points.push({
       lat:c.lat, lng:c.lon, size:0.3, alt:0.012,
       color: n.anom ? 'rgba(255,95,99,0.9)' : 'rgba(255,224,130,0.8)', type:'nuke', priority:2,
-      popHead:n.site, popMeta:'Radiation Monitoring',
-      popText:`Status: ${n.anom?'ANOMALY':'Normal'}<br>Avg CPM: ${n.cpm?.toFixed(1)||'No data'}<br>Readings: ${n.n}`
+      popHead:n.site, popMeta:'辐射监测',
+      popText:`状态: ${n.anom?'异常':'正常'}<br>平均 CPM: ${n.cpm?.toFixed(1)||'无数据'}<br>读数数: ${n.n}`
     });
   });
 
@@ -893,8 +1169,8 @@ function plotMarkers(){
       points.push({
         lat:r.lat, lng:r.lon, size:0.15, alt:0.005,
         color:'rgba(68,204,255,0.6)', type:'sdr', priority:3,
-        popHead:'SDR Receiver', popMeta:'KiwiSDR Network',
-        popText:`${r.name}<br>Zone: ${z.region}<br>${z.count} in zone`
+        popHead:'SDR 接收机', popMeta:'KiwiSDR 网络',
+        popText:`${r.name}<br>区域: ${z.region}<br>区内总数: ${z.count}`
       });
     });
   });
@@ -906,7 +1182,7 @@ function plotMarkers(){
     points.push({
       lat:o.lat, lng:o.lon, size:0.3, alt:0.018,
       color:'rgba(255,184,76,0.8)', type:'osint', priority:2,
-      popHead:(post.channel||'').toUpperCase(), popMeta:`${post.views?.toLocaleString()||'?'} views`,
+      popHead:(post.channel||'').toUpperCase(), popMeta:`${post.views?.toLocaleString()||'?'} 次浏览`,
       popText:cleanText(post.text?.substring(0,200)||'')
     });
   });
@@ -918,7 +1194,7 @@ function plotMarkers(){
     points.push({
       lat:c.lat, lng:c.lon, size:0.25, alt:0.01,
       color:'rgba(105,240,174,0.7)', type:'health', priority:2,
-      popHead:w.title, popMeta:'WHO Outbreak', popText:w.summary||''
+      popHead:w.title, popMeta:'WHO 疫情通报', popText:w.summary||''
     });
   });
 
@@ -927,8 +1203,8 @@ function plotMarkers(){
     points.push({
       lat:n.lat, lng:n.lon, size:0.2, alt:0.008,
       color:'rgba(129,212,250,0.7)', type:'news', priority:3,
-      popHead:n.source+' NEWS', popMeta:n.region+' · '+getAge(n.date),
-      popText:cleanText(n.title)
+      popHead:n.source+' 新闻', popMeta:n.region+' · '+getAge(n.date),
+      popText:cleanText(n.title), popUrl:safeExternalUrl(n.url)
     });
   });
 
@@ -947,8 +1223,47 @@ function plotMarkers(){
     points.push({
       lat:s.lat, lng:s.lon, size:0.18, alt:0.006,
       color:'rgba(205,220,57,0.7)', type:'radiation', priority:3,
-      popHead:'RadNet: '+s.location, popMeta:'EPA Radiation Monitor',
-      popText:`${s.analyte||'--'}: ${s.result||'--'} ${s.unit||''}<br>State: ${s.state}`
+      popHead:'RadNet: '+s.location, popMeta:'EPA 辐射监测',
+      popText:`${s.analyte||'--'}: ${s.result||'--'} ${s.unit||''}<br>州: ${s.state}`
+    });
+  });
+
+  // === Earthquakes (pink) ===
+  (D.disaster?.earthquakes||[]).forEach(eq=>{
+    if(eq.lat==null || eq.lon==null) return;
+    points.push({
+      lat:eq.lat, lng:eq.lon, size:0.12 + Math.min((eq.magnitude||0) / 8, 0.35), alt:0.01,
+      color:'rgba(255,128,171,0.75)', type:'earthquake', priority:2,
+      popHead:`M ${(eq.magnitude||0).toFixed(1)} · ${eq.place}`,
+      popMeta:'USGS 地震',
+      popText:`深度: ${eq.depthKm != null ? eq.depthKm.toFixed(1) : '--'} km<br>海啸: ${eq.tsunami ? '是' : '否'}<br>${eq.time ? getAge(eq.time) : ''}`,
+      popUrl:safeExternalUrl(eq.url)
+    });
+  });
+
+  // === NASA EONET natural events (teal, excluding wildfires already covered by FIRMS) ===
+  (D.disaster?.events||[]).filter(ev=>ev.categoryId!=='wildfires').forEach(ev=>{
+    if(ev.lat==null || ev.lon==null) return;
+    points.push({
+      lat:ev.lat, lng:ev.lon, size:0.2, alt:0.009,
+      color:'rgba(38,166,154,0.75)', type:'disaster', priority:2,
+      popHead:ev.title,
+      popMeta:`NASA EONET · ${ev.category}`,
+      popText:`${ev.magnitudeValue != null ? `${ev.magnitudeValue} ${ev.magnitudeUnit||''}<br>` : ''}${ev.date ? getAge(ev.date) : ''}`,
+      popUrl:safeExternalUrl(ev.link)
+    });
+  });
+
+  // === Upcoming launch pads (white) ===
+  (D.space?.upcomingLaunches||[]).slice(0,5).forEach(launch=>{
+    if(launch.lat==null || launch.lon==null) return;
+    points.push({
+      lat:launch.lat, lng:launch.lon, size:0.28, alt:0.015,
+      color:'rgba(255,255,255,0.78)', type:'space', priority:2,
+      popHead:launch.name,
+      popMeta:`待发射任务 · ${launch.status||'scheduled'}`,
+      popText:`${launch.provider||'未知'}<br>${launch.pad||''}${launch.probability != null ? `<br>成功概率: ${launch.probability}%` : ''}${launch.weatherConcerns ? `<br>天气: ${launch.weatherConcerns}` : ''}`,
+      popUrl:safeExternalUrl(launch.url)
     });
   });
 
@@ -957,8 +1272,8 @@ function plotMarkers(){
     points.push({
       lat:s.lat, lng:s.lon, size:0.4, alt:0.04,
       color:'rgba(255,255,255,0.95)', type:'space', priority:1,
-      popHead:s.name, popMeta:'Space Station (approx.)',
-      popText:`Orbital position estimate<br>Lat: ${s.lat}° Lon: ${s.lon}°`
+      popHead:s.name, popMeta:'空间站（估算）',
+      popText:`轨道位置估算<br>纬度: ${s.lat}° 经度: ${s.lon}°`
     });
     labels.push({lat:s.lat, lng:s.lon+3, text:s.name.split('(')[0].trim(), size:0.35, color:'rgba(255,255,255,0.7)'});
   });
@@ -968,8 +1283,8 @@ function plotMarkers(){
     points.push({
       lat:g.lat, lng:g.lon, size:0.15+Math.min(g.count/50,0.2), alt:0.007,
       color:'rgba(100,149,237,0.6)', type:'gdelt', priority:3,
-      popHead:'GDELT Event', popMeta:g.count+' reports',
-      popText:g.name||'Global event detection'
+      popHead:'GDELT 事件', popMeta:g.count+' 条报告',
+      popText:g.name||'全球事件探测'
     });
   });
 
@@ -985,8 +1300,8 @@ function plotMarkers(){
       maxR: Math.max(2, Math.min(6, 1 + logFatal)),
       speed: 1.5 + Math.random(),
       period: 600 + Math.random()*600,
-      popHead: e.type || 'CONFLICT', popMeta: 'ACLED Conflict Data',
-      popText: `${e.fatalities} fatalities<br>${e.location}, ${e.country}<br>Date: ${e.date}`
+      popHead: e.type || '冲突', popMeta: 'ACLED 冲突数据',
+      popText: `${e.fatalities} 人死亡<br>${e.location}, ${e.country}<br>日期: ${e.date}`
     };
   });
   globe.ringsData(conflictRings);
@@ -1052,7 +1367,7 @@ function plotMarkers(){
     globe.labelSize(d => showLabels ? (d.size || 0.4) : 0);
     // Scale arc strokes with zoom
     globe.arcStroke(d => (d.stroke || 0.4) * Math.max(0.5, Math.min(1.5, 1.2 / alt)));
-    globe.arcDashAnimateTime(lowPerfMode ? 0 : 2000);
+    globe.arcDashAnimateTime(lowPerfMode ? 0 : 2600);
     // Priority-based point visibility: hide low-priority markers when zoomed out
     if(alt > 2.0){
       globe.pointsData(points.filter(p => (p.priority||3) <= 1));
@@ -1065,9 +1380,10 @@ function plotMarkers(){
   if(typeof globe.onZoom==='function') globe.onZoom(onGlobeZoom);
 }
 
-function showPopup(event,head,text,meta,lat,lng,alt){
+function showPopup(event,head,text,meta,lat,lng,alt,url){
   const popup=document.getElementById('mapPopup');
   const container=document.getElementById('mapContainer');
+  const linkEl=popup.querySelector('.pp-link');
   const rect=container.getBoundingClientRect();
   let left, top;
   if(!isFlat && lat!=null && globe && typeof globe.getScreenCoords==='function'){
@@ -1090,6 +1406,16 @@ function showPopup(event,head,text,meta,lat,lng,alt){
   popup.querySelector('.pp-head').textContent=head||'';
   popup.querySelector('.pp-text').innerHTML=text||'';
   popup.querySelector('.pp-meta').textContent=meta||'';
+  const safeUrl=safeExternalUrl(url);
+  if(linkEl){
+    if(safeUrl){
+      linkEl.href=safeUrl;
+      linkEl.hidden=false;
+    }else{
+      linkEl.removeAttribute('href');
+      linkEl.hidden=true;
+    }
+  }
   popup.classList.add('show');
 }
 function closePopup(){document.getElementById('mapPopup').classList.remove('show')}
@@ -1099,6 +1425,7 @@ function toggleFlights() {
   flightsVisible = !flightsVisible;
   const btn = document.getElementById('flightToggle');
   btn.classList.toggle('off', !flightsVisible);
+  syncMapUiText();
   if(isFlat){
     if(flatG){
       flatG.selectAll('*').remove();
@@ -1130,11 +1457,9 @@ const flatRegionBounds = {
 function toggleMapMode(){
   isFlat = !isFlat;
   const btn = document.getElementById('projToggle');
-  const hint = document.getElementById('mapHint');
-  btn.textContent = isFlat ? 'GLOBE MODE' : 'FLAT MODE';
-  hint.textContent = isFlat ? 'SCROLL TO ZOOM · DRAG TO PAN' : 'DRAG TO ROTATE · SCROLL TO ZOOM';
   const globeEl = document.getElementById('globeViz');
   const flatEl = document.getElementById('flatMapSvg');
+  syncMapUiText();
   if(isFlat){
     if(globe && typeof globe.pauseAnimation === 'function') globe.pauseAnimation();
     globeEl.style.display = 'none';
@@ -1144,7 +1469,7 @@ function toggleMapMode(){
     else { flatG.selectAll('*').remove(); drawFlatMap(); }
   } else {
     flatEl.style.display = 'none';
-    setMapLoading(true, 'Initializing 3D Globe');
+    setMapLoading(true, t('map.loading','正在载入三维地球'));
     requestAnimationFrame(() => {
       try {
         initGlobe();
@@ -1155,8 +1480,7 @@ function toggleMapMode(){
         isFlat = true;
         globeEl.style.display = 'none';
         flatEl.style.display = 'block';
-        btn.textContent = 'GLOBE MODE';
-        hint.textContent = '3D LOAD FAILED · FLAT MODE';
+        syncMapUiText(true);
         if(!flatSvg) initFlatMap();
         else { flatG.selectAll('*').remove(); drawFlatMap(); }
         setMapLoading(false);
@@ -1180,6 +1504,7 @@ function initFlatMap(){
       .style('display',k>=2.5?'block':'none');
   });
   flatSvg.call(flatZoom);
+  flatSvg.on('wheel.zoom', null);
   drawFlatMap();
 }
 
@@ -1210,53 +1535,69 @@ function plotFlatMarkers(){
     D.air.forEach((a,i)=>{
       const c=airCoords[i];if(!c)return;
       const g=addPt(c.lat,c.lon,4+a.total/40,'rgba(100,240,200,0.7)','rgba(100,240,200,0.3)',
-        ev=>showPopup(ev,a.region,`${a.total} aircraft<br>No callsign: ${a.noCallsign}<br>High alt: ${a.highAlt}`,'Air Activity'),1);
+        ev=>showPopup(ev,a.region,`${a.total} 架航空器<br>无呼号: ${a.noCallsign}<br>高空目标: ${a.highAlt}`,'空域活动'),1);
       if(g) g.append('text').attr('class','marker-label').attr('x',10).attr('y',3).attr('fill','var(--dim)').attr('font-size','9px').attr('font-family','var(--mono)').text(a.region.replace(' Region','')+' '+a.total);
     });
   }
   // Thermal
   D.thermal.forEach(t=>t.fires.forEach(f=>{
     addPt(f.lat,f.lon,2+Math.min(f.frp/50,5),'rgba(255,95,99,0.6)','rgba(255,95,99,0.2)',
-      ev=>showPopup(ev,'Thermal',`${t.region}<br>FRP: ${f.frp.toFixed(1)} MW`,'FIRMS'),3);
+      ev=>showPopup(ev,'热源探测',`${t.region}<br>FRP: ${f.frp.toFixed(1)} MW`,'FIRMS'),3);
   }));
   // Chokepoints
   D.chokepoints.forEach(cp=>{
     const[x,y]=proj([cp.lon,cp.lat]);if(!x||!y)return;
     const g=mg.append('g').attr('transform',`translate(${x},${y})`).style('cursor','pointer').attr('data-priority',1)
-      .on('click',ev=>{ev.stopPropagation();showPopup(ev,cp.label,cp.note,'Maritime')});
+      .on('click',ev=>{ev.stopPropagation();showPopup(ev,cp.label,cp.note,'海事情报')});
     g.append('rect').attr('x',-4).attr('y',-4).attr('width',8).attr('height',8).attr('fill','rgba(179,136,255,0.7)').attr('stroke','rgba(179,136,255,0.3)').attr('stroke-width',0.5).attr('transform','rotate(45)');
     g.append('text').attr('class','marker-label').attr('x',8).attr('y',3).attr('fill','var(--dim)').attr('font-size','8px').attr('font-family','var(--mono)').text(cp.label);
   });
   // Nuclear
   const nukeCoords=[{lat:47.5,lon:34.6},{lat:51.4,lon:30.1},{lat:28.8,lon:50.9},{lat:39.8,lon:125.8},{lat:37.4,lon:141},{lat:31.0,lon:35.1}];
-  D.nuke.forEach((n,i)=>{const c=nukeCoords[i];if(!c)return;addPt(c.lat,c.lon,4,'rgba(255,224,130,0.7)','rgba(255,224,130,0.3)',ev=>showPopup(ev,n.site,`CPM: ${n.cpm?.toFixed(1)||'--'}`,'Radiation'),2)});
+  D.nuke.forEach((n,i)=>{const c=nukeCoords[i];if(!c)return;addPt(c.lat,c.lon,4,'rgba(255,224,130,0.7)','rgba(255,224,130,0.3)',ev=>showPopup(ev,n.site,`CPM: ${n.cpm?.toFixed(1)||'--'}`,'辐射监测'),2)});
   // SDR
-  D.sdr.zones.forEach(z=>z.receivers.forEach(r=>{addPt(r.lat,r.lon,2.5,'rgba(68,204,255,0.5)','rgba(68,204,255,0.2)',ev=>showPopup(ev,'SDR',`${r.name}<br>${z.region}`,'KiwiSDR'),3)}));
+  D.sdr.zones.forEach(z=>z.receivers.forEach(r=>{addPt(r.lat,r.lon,2.5,'rgba(68,204,255,0.5)','rgba(68,204,255,0.2)',ev=>showPopup(ev,'SDR',`${r.name}<br>${z.region}`,'KiwiSDR 网络'),3)}));
   // OSINT
   const osintGeo=[{lat:45,lon:41,idx:0},{lat:48,lon:37,idx:1},{lat:48.5,lon:37.5,idx:2},{lat:45,lon:40.2,idx:3},{lat:50.6,lon:36.6,idx:5},{lat:48.5,lon:35,idx:6}];
-  osintGeo.forEach(o=>{const p=D.tg.urgent[o.idx];if(!p)return;addPt(o.lat,o.lon,4,'rgba(255,184,76,0.7)','rgba(255,184,76,0.3)',ev=>showPopup(ev,(p.channel||'').toUpperCase(),cleanText(p.text?.substring(0,200)||''),`${p.views||'?'} views`),2)});
+  osintGeo.forEach(o=>{const p=D.tg.urgent[o.idx];if(!p)return;addPt(o.lat,o.lon,4,'rgba(255,184,76,0.7)','rgba(255,184,76,0.3)',ev=>showPopup(ev,(p.channel||'').toUpperCase(),cleanText(p.text?.substring(0,200)||''),`${p.views||'?'} 次浏览`),2)});
   // WHO
   const whoGeo=[{lat:0.3,lon:32.6},{lat:-6.2,lon:106.8},{lat:-4.3,lon:15.3},{lat:35,lon:105},{lat:12.5,lon:105},{lat:35,lon:105},{lat:28,lon:84},{lat:24,lon:45},{lat:30,lon:70},{lat:-0.8,lon:11.6}];
-  D.who.slice(0,10).forEach((w,i)=>{const c=whoGeo[i];if(!c)return;addPt(c.lat,c.lon,3.5,'rgba(105,240,174,0.6)','rgba(105,240,174,0.2)',ev=>showPopup(ev,w.title,w.summary||'','WHO'),2)});
+  D.who.slice(0,10).forEach((w,i)=>{const c=whoGeo[i];if(!c)return;addPt(c.lat,c.lon,3.5,'rgba(105,240,174,0.6)','rgba(105,240,174,0.2)',ev=>showPopup(ev,w.title,w.summary||'','WHO 通报'),2)});
   // News
-  (D.news||[]).forEach(n=>{addPt(n.lat,n.lon,3,'rgba(129,212,250,0.6)','rgba(129,212,250,0.2)',ev=>showPopup(ev,n.source+' NEWS',cleanText(n.title),n.region),3)});
+  (D.news||[]).forEach(n=>{addPt(n.lat,n.lon,3,'rgba(129,212,250,0.6)','rgba(129,212,250,0.2)',ev=>showPopup(ev,n.source+' 新闻',cleanText(n.title),n.region,null,null,null,safeExternalUrl(n.url)),3)});
   // NOAA weather
   (D.noaa?.alerts||[]).forEach(a=>{addPt(a.lat,a.lon,4,'rgba(255,152,0,0.7)','rgba(255,152,0,0.3)',ev=>showPopup(ev,a.event,a.headline||'','NOAA/NWS'),2)});
   // EPA RadNet
-  (D.epa?.stations||[]).forEach(s=>{addPt(s.lat,s.lon,3,'rgba(205,220,57,0.6)','rgba(205,220,57,0.2)',ev=>showPopup(ev,'RadNet: '+s.location,`${s.analyte||'--'}: ${s.result||'--'} ${s.unit||''}`,'EPA'),3)});
+  (D.epa?.stations||[]).forEach(s=>{addPt(s.lat,s.lon,3,'rgba(205,220,57,0.6)','rgba(205,220,57,0.2)',ev=>showPopup(ev,'RadNet: '+s.location,`${s.analyte||'--'}: ${s.result||'--'} ${s.unit||''}`,'EPA 辐射监测'),3)});
+  // Earthquakes
+  (D.disaster?.earthquakes||[]).forEach(eq=>{
+    if(eq.lat==null || eq.lon==null) return;
+    addPt(eq.lat,eq.lon,3+Math.min((eq.magnitude||0),4),'rgba(255,128,171,0.65)','rgba(255,128,171,0.25)',ev=>showPopup(ev,`M ${(eq.magnitude||0).toFixed(1)} · ${eq.place}`,`深度: ${eq.depthKm != null ? eq.depthKm.toFixed(1) : '--'} km<br>海啸: ${eq.tsunami ? '是' : '否'}`,'USGS 地震',null,null,null,safeExternalUrl(eq.url)),2);
+  });
+  // NASA EONET natural events
+  (D.disaster?.events||[]).filter(ev=>ev.categoryId!=='wildfires').forEach(ev=>{
+    if(ev.lat==null || ev.lon==null) return;
+    addPt(ev.lat,ev.lon,3.5,'rgba(38,166,154,0.65)','rgba(38,166,154,0.25)',evClick=>showPopup(evClick,ev.title,`${ev.magnitudeValue != null ? `${ev.magnitudeValue} ${ev.magnitudeUnit||''}<br>` : ''}${ev.category}`,'NASA EONET',null,null,null,safeExternalUrl(ev.link)),2);
+  });
+  // Upcoming launch pads
+  (D.space?.upcomingLaunches||[]).slice(0,5).forEach(launch=>{
+    if(launch.lat==null || launch.lon==null) return;
+    const g=addPt(launch.lat,launch.lon,4,'rgba(255,255,255,0.82)','rgba(255,255,255,0.35)',ev=>showPopup(ev,launch.name,`${launch.provider||'未知'}<br>${launch.pad||''}${launch.probability != null ? `<br>成功概率: ${launch.probability}%` : ''}`,'待发射任务',null,null,null,safeExternalUrl(launch.url)),2);
+    if(g) g.append('text').attr('class','marker-label').attr('x',8).attr('y',3).attr('fill','rgba(255,255,255,0.7)').attr('font-size','8px').attr('font-family','var(--mono)').text('发射');
+  });
   // Space stations
   (D.space?.stationPositions||[]).forEach(s=>{
-    const g=addPt(s.lat,s.lon,5,'rgba(255,255,255,0.9)','rgba(255,255,255,0.4)',ev=>showPopup(ev,s.name,'Orbital position estimate','Space Station'),1);
+    const g=addPt(s.lat,s.lon,5,'rgba(255,255,255,0.9)','rgba(255,255,255,0.4)',ev=>showPopup(ev,s.name,'轨道位置估算','空间站'),1);
     if(g) g.append('text').attr('class','marker-label').attr('x',8).attr('y',3).attr('fill','rgba(255,255,255,0.7)').attr('font-size','8px').attr('font-family','var(--mono)').text(s.name.split('(')[0].trim());
   });
   // GDELT geo events
-  (D.gdelt?.geoPoints||[]).forEach(g=>{addPt(g.lat,g.lon,2.5,'rgba(100,149,237,0.5)','rgba(100,149,237,0.2)',ev=>showPopup(ev,'GDELT Event',g.name||'','GDELT · '+g.count+' reports'),3)});
+  (D.gdelt?.geoPoints||[]).forEach(g=>{addPt(g.lat,g.lon,2.5,'rgba(100,149,237,0.5)','rgba(100,149,237,0.2)',ev=>showPopup(ev,'GDELT 事件',g.name||'','GDELT · '+g.count+' 条报告'),3)});
   // ACLED
   (D.acled?.deadliestEvents||[]).filter(e=>e.lat&&e.lon).forEach(e=>{
     const[x,y]=proj([e.lon,e.lat]);if(!x||!y)return;
     const r=Math.max(4,Math.min(14,2+Math.log2(Math.max(e.fatalities,1))*1.5));
     const g=mg.append('g').attr('transform',`translate(${x},${y})`).style('cursor','pointer').attr('data-priority',1)
-      .on('click',ev=>{ev.stopPropagation();showPopup(ev,e.type||'CONFLICT',`${e.fatalities} fatalities<br>${e.location}, ${e.country}`,'ACLED')});
+      .on('click',ev=>{ev.stopPropagation();showPopup(ev,e.type||'冲突',`${e.fatalities} 人死亡<br>${e.location}, ${e.country}`,'ACLED')});
     g.append('circle').attr('class','conflict-ring marker-circle').attr('r',r).attr('data-base-r',r).attr('fill','none').attr('stroke','rgba(255,120,80,0.7)').attr('stroke-width',1.5);
     g.append('circle').attr('r',r*0.4).attr('fill','rgba(255,120,80,0.3)');
   });
@@ -1273,21 +1614,27 @@ function plotFlatMarkers(){
       const interp=d3.geoInterpolate([from.lon,from.lat],[to.lon,to.lat]);
       const coords=[];for(let k=0;k<=40;k++)coords.push(interp(k/40));
       const feat={type:'Feature',geometry:{type:'LineString',coordinates:coords}};
-      cG.append('path').datum(feat).attr('d',flatPath).attr('fill','none').attr('stroke',clr).attr('stroke-width',Math.max(0.8,Math.min(3,traffic/80)));
+      const width=Math.max(0.8,Math.min(3,traffic/80));
+      cG.append('path').datum(feat).attr('class','corridor-line corridor-glow').attr('d',flatPath).attr('fill','none').attr('stroke',clr).attr('stroke-width',width+2.2).attr('opacity',0.12);
+      cG.append('path').datum(feat).attr('class','corridor-line corridor-core').attr('d',flatPath).attr('fill','none').attr('stroke',clr).attr('stroke-width',width);
+      cG.append('path').datum(feat).attr('class','corridor-line corridor-flow').attr('d',flatPath).attr('fill','none').attr('stroke','rgba(196,255,243,0.72)').attr('stroke-width',Math.max(0.6,width*0.55)).attr('stroke-dasharray','10 14').attr('stroke-linecap','round');
     }}
     D.air.forEach((a,i)=>{if(!airCoordsFlight[i]||a.total<25)return;hubs.forEach(hub=>{
       if(Math.abs(airCoordsFlight[i].lat-hub.lat)+Math.abs(airCoordsFlight[i].lon-hub.lon)<20)return;
       const interp=d3.geoInterpolate([airCoordsFlight[i].lon,airCoordsFlight[i].lat],[hub.lon,hub.lat]);
       const coords=[];for(let k=0;k<=40;k++)coords.push(interp(k/40));
-      cG.append('path').datum({type:'Feature',geometry:{type:'LineString',coordinates:coords}}).attr('d',flatPath).attr('fill','none').attr('stroke','rgba(100,240,200,0.15)').attr('stroke-width',0.6);
+      const feat={type:'Feature',geometry:{type:'LineString',coordinates:coords}};
+      cG.append('path').datum(feat).attr('class','corridor-line corridor-glow').attr('d',flatPath).attr('fill','none').attr('stroke','rgba(100,240,200,0.12)').attr('stroke-width',2.1).attr('opacity',0.1);
+      cG.append('path').datum(feat).attr('class','corridor-line corridor-core').attr('d',flatPath).attr('fill','none').attr('stroke','rgba(100,240,200,0.18)').attr('stroke-width',0.8);
+      cG.append('path').datum(feat).attr('class','corridor-line corridor-flow').attr('d',flatPath).attr('fill','none').attr('stroke','rgba(196,255,243,0.56)').attr('stroke-width',0.65).attr('stroke-dasharray','8 16').attr('stroke-linecap','round');
     })});
   }
 }
 
-// Update setRegion for flat mode
+// 为平面地图模式更新 setRegion
 const _origSetRegion = setRegion;
 
-// Override mapZoom for flat mode
+// 为平面地图模式重载 mapZoom
 const _origMapZoom = mapZoom;
 
 function setRegion(r){
@@ -1333,6 +1680,17 @@ function mkSparkSvg(values, isGood){
   return `<svg class="spark-svg" viewBox="0 0 ${w} ${h}"><polyline class="spark-line ${cls}" points="${pts.join(' ')}"/><circle class="${cls} spark-dot" cx="${last.split(',')[0]}" cy="${last.split(',')[1]}" r="2" fill="${isGood?'var(--accent)':'var(--danger)'}"/></svg>`;
 }
 
+function buildStreamTimeMeta(timestamp, source){
+  const parts = [];
+  if(timestamp){
+    parts.push(`<span class="js-age" data-ts="${escapeAttr(timestamp)}">${getAge(timestamp)}</span>`);
+  }
+  if(source){
+    parts.push(`<span class="js-source-clock" data-source="${escapeAttr(source)}">${buildSourceClockLabel(source)}</span>`);
+  }
+  return parts.join(' · ');
+}
+
 // === LOWER GRID ===
 function renderLower(){
   const mobile = isMobileLayout();
@@ -1344,9 +1702,11 @@ function renderLower(){
   const gscpi=D.gscpi;
   const mkt=D.markets||{};
   const metals=D.metals||{};
+  const world=D.world||{};
 
   const wtiH = D.energy.wtiRecent||[];
-  const wtiMax=Math.max(...wtiH),wtiMin=Math.min(...wtiH);
+  const wtiSeries = wtiH.length ? wtiH : [0,0];
+  const wtiMax=Math.max(...wtiSeries),wtiMin=Math.min(...wtiSeries);
   const sparkHtml=wtiH.map(v=>{
     const pct=wtiMax===wtiMin?50:((v-wtiMin)/(wtiMax-wtiMin))*100;
     return `<div class="spark-bar" style="height:${Math.max(pct,8)}%"></div>`;
@@ -1373,7 +1733,7 @@ function renderLower(){
   const vixVal = vixLive?.value || vixFred?.value;
   const vixChg = vixLive?.changePct != null ? `${vixLive.changePct>=0?'+':''}${vixLive.changePct}%` : '';
   const fmtMarketPrice = (price) => price != null ? `$${price.toLocaleString(undefined,{maximumFractionDigits:2})}` : '--';
-  const dayMove = (pct) => pct != null ? `${pct>=0?'+':''}${pct}% today` : '';
+  const dayMove = (pct) => pct != null ? `${pct>=0?'+':''}${pct}% 今日` : '';
 
   const metrics=[
     {l:'WTI Crude',v:`$${D.energy.wti}`,s:'$/bbl',p:70},
@@ -1402,6 +1762,14 @@ function renderLower(){
   const cryptoCards = (mkt.crypto||[]).map(mktCard).join('');
   const rateCards = (mkt.rates||[]).map(mktCard).join('');
   const hasMarkets = indexCards || cryptoCards;
+  const fmtTrillions = (value) => value != null ? `$${(value/1e12).toFixed(1)}T` : '--';
+  const worldCards = [
+    world.gdpLeaders?.[0] ? { label: 'GDP 领先', value: `${world.gdpLeaders[0].name} ${fmtTrillions(world.gdpLeaders[0].gdp)}`, sub: world.gdpLeaders[0].date || '世界银行' } : null,
+    world.inflationLeaders?.[0] ? { label: '通胀最高', value: `${world.inflationLeaders[0].name} ${world.inflationLeaders[0].inflation?.toFixed(1)}%`, sub: world.inflationLeaders[0].date || '年度 CPI' } : null,
+    world.tradeExposure?.[0] ? { label: '贸易敞口', value: `${world.tradeExposure[0].name} ${world.tradeExposure[0].tradePct?.toFixed(0)}%`, sub: '贸易 / GDP' } : null,
+    world.militaryBurden?.[0] ? { label: '军费负担', value: `${world.militaryBurden[0].name} ${world.militaryBurden[0].militaryPct?.toFixed(1)}%`, sub: '军费 / GDP' } : null,
+  ].filter(Boolean);
+  const worldSignals = (world.signals||[]).slice(0,2).map(signal=>`<div>${signal}</div>`).join('');
 
   const srcHtml=D.health.map(s=>`<div class="src-item"><div class="sd ${s.err?'err':'ok'}"></div><span>${s.n}</span></div>`).join('');
 
@@ -1427,9 +1795,9 @@ function renderLower(){
   };
   const tickerCards = feed.map(n => {
     const sc = srcClass(n.source);
-    const age = n.timestamp ? getAge(n.timestamp) : '';
-    const urlAttr = n.url ? ` data-url="${String(n.url).replace(/&/g,'&amp;').replace(/"/g,'&quot;')}"` : '';
-    return `<div class="tk-card ${n.urgent?'urgent':''} ${n.url?'clickable':''}"${urlAttr}><span class="tk-src ${sc}">${(n.source||'NEWS').substring(0,12)}</span><span class="tk-time">${age}</span><div class="tk-head">${cleanText(n.headline||'')}</div>${n.url?'<span class="tk-link">&#8599;</span>':''}</div>`;
+    const timeMeta = buildStreamTimeMeta(n.timestamp, n.source);
+    const safeUrl = safeExternalUrl(n.url);
+    return `<div class="tk-card ${n.urgent?'urgent':''}"><div class="tk-top"><span class="tk-src ${sc}">${(n.source||'NEWS').substring(0,14)}</span>${safeUrl?`<a class="tk-link" href="${safeUrl}" target="_blank" rel="noopener noreferrer">链接 &#8599;</a>`:''}</div><div class="tk-head">${cleanText(n.headline||'')}</div><div class="tk-time">${timeMeta}</div></div>`;
   }).join('');
   const tickerDuration = Math.max(20, feed.length * 2.5);
 
@@ -1440,50 +1808,55 @@ function renderLower(){
       <span class="idea-type ${(idea.type||'').toLowerCase()}">${(idea.type||'').toUpperCase()}</span>
       ${idea.ticker ? `<span class="idea-horizon">${idea.ticker}</span>` : ''}
       ${idea.horizon ? `<span class="idea-horizon">${idea.horizon}</span>` : ''}
-      <span class="idea-conf">${idea.confidence} confidence</span>
+      <span class="idea-conf">${idea.confidence} 置信度</span>
       <div class="idea-title">${idea.title}</div>
       <div class="idea-text">${idea.text||idea.rationale||''}</div>
-      ${idea.risk ? `<div class="idea-text" style="color:var(--warn);margin-top:3px">Risk: ${idea.risk}</div>` : ''}
+      ${idea.risk ? `<div class="idea-text" style="color:var(--warn);margin-top:3px">风险：${idea.risk}</div>` : ''}
     </div>`).join('') : `<div style="padding:20px;text-align:center;color:var(--dim);font-family:var(--mono);font-size:11px">
       <div style="font-size:24px;margin-bottom:8px;opacity:0.3">&#9888;</div>
-      <div>LLM NOT CONFIGURED</div>
-      <div style="font-size:9px;margin-top:6px;opacity:0.6">Set LLM_PROVIDER + credentials in .env to enable AI-powered trade ideas</div>
+      <div>尚未配置 LLM</div>
+      <div style="font-size:9px;margin-top:6px;opacity:0.6">在 .env 中设置 LLM_PROVIDER 和鉴权信息后，可启用 AI 观点模块。</div>
     </div>`;
 
 
   const tickerPanel = `<div class="g-panel lp-ticker" style="display:flex;flex-direction:column">
-      <div class="sec-head"><h3>${t('panels.newsTicker','Live News Ticker')}</h3><span class="badge">${feed.length} ${t('badges.items','ITEMS')}</span></div>
+      <div class="sec-head"><h3>${t('panels.newsTicker','全球快讯流')}</h3><span class="badge">${feed.length} ${t('badges.items','条')}</span></div>
       <div class="ticker-wrap" style="--ticker-duration:${tickerDuration}s">
-        <div class="ticker-track">${tickerCards}${lowPerfMode ? '' : tickerCards}</div>
+        <div class="ticker-track">${tickerCards}</div>
       </div>
     </div>`;
   const osintPanel = mobile ? buildOsintPanel('lp-osint', 240) : '';
   const macroPanel = `<div class="g-panel lp-macro">
-      <div class="sec-head"><h3>${t('panels.macroMarkets','Macro + Markets')}</h3><span class="badge">${mkt.timestamp?t('badges.live','LIVE'):t('badges.delayed','DELAYED')}</span></div>
+      <div class="sec-head"><h3>${t('panels.macroMarkets','宏观与市场')}</h3><span class="badge">${mkt.timestamp?t('badges.live','实时'):t('badges.delayed','延迟')}</span></div>
       ${hasMarkets?`<div style="margin-bottom:8px">
-        <div style="font-family:var(--mono);font-size:9px;color:var(--dim);margin-bottom:4px;letter-spacing:1px">INDEXES</div>
+        <div style="font-family:var(--mono);font-size:9px;color:var(--dim);margin-bottom:4px;letter-spacing:1px">指数</div>
         <div class="metrics-row">${indexCards}</div>
       </div>
       <div style="margin-bottom:8px">
-        <div style="font-family:var(--mono);font-size:9px;color:var(--dim);margin-bottom:4px;letter-spacing:1px">CRYPTO</div>
+        <div style="font-family:var(--mono);font-size:9px;color:var(--dim);margin-bottom:4px;letter-spacing:1px">加密资产</div>
         <div class="metrics-row">${cryptoCards}</div>
       </div>`:''}
+      ${worldCards.length?`<div style="margin-bottom:8px">
+        <div style="font-family:var(--mono);font-size:9px;color:var(--dim);margin-bottom:4px;letter-spacing:1px">世界银行结构面</div>
+        <div class="metrics-row">${worldCards.map(card=>`<div class="mc"><div class="ml">${card.label}</div><span class="mv">${card.value}</span><span class="ms">${card.sub}</span></div>`).join('')}</div>
+        ${worldSignals?`<div style="margin-top:6px;padding:6px 8px;border:1px solid rgba(255,255,255,0.04);background:rgba(255,255,255,0.02);font-family:var(--mono);font-size:9px;line-height:1.5;color:var(--dim)">${worldSignals}</div>`:''}
+      </div>`:''}
       <div style="margin-bottom:8px">
-        <div style="font-family:var(--mono);font-size:9px;color:var(--dim);margin-bottom:4px;letter-spacing:1px">ENERGY + METALS + MACRO</div>
+        <div style="font-family:var(--mono);font-size:9px;color:var(--dim);margin-bottom:4px;letter-spacing:1px">能源 + 金属 + 宏观</div>
         <div class="metrics-row">${metrics.map(m=>{
           const sparkSvg = m.spark ? mkSparkSvg(m.spark, m.sparkUp) : '';
           return `<div class="mc"><div class="ml">${m.l}</div><span class="mv">${m.v}${sparkSvg}</span><span class="ms">${m.s}</span><div class="mbar"><span style="width:${m.p}%"></span></div></div>`;
         }).join('')}</div>
       </div>
       <div style="margin-top:6px">
-        <div style="font-family:var(--mono);font-size:10px;color:var(--dim);margin-bottom:4px">WTI 5-DAY</div>
+        <div style="font-family:var(--mono);font-size:10px;color:var(--dim);margin-bottom:4px">WTI 五日走势</div>
         <div class="spark">${sparkHtml}</div>
       </div>
     </div>`;
   const ideasPanel = `<div class="g-panel lp-ideas">
-      <div class="sec-head"><h3>${t('panels.tradeIdeas','Leverageable Ideas')}</h3>${D.ideasSource==='llm'?'<span class="ideas-src llm">'+t('ideas.aiEnhanced','AI ENHANCED')+'</span>':D.ideasSource==='disabled'?'<span class="ideas-src static">'+t('ideas.llmOff','LLM OFF')+'</span>':'<span class="ideas-src static">'+t('ideas.pending','PENDING')+'</span>'}</div>
+      <div class="sec-head"><h3>${t('panels.tradeIdeas','可执行观点')}</h3>${D.ideasSource==='llm'?'<span class="ideas-src llm">'+t('ideas.aiEnhanced','AI 增强')+'</span>':D.ideasSource==='disabled'?'<span class="ideas-src static">'+t('ideas.llmOff','LLM 关闭')+'</span>':'<span class="ideas-src static">'+t('ideas.pending','等待中')+'</span>'}</div>
       ${ideasHtml}
-      <div class="disclosure">FOR INFORMATIONAL PURPOSES ONLY. This is not financial advice, a recommendation to buy or sell any security, or a solicitation of any kind. All signal-based observations are derived from publicly available OSINT data and should not be relied upon for investment decisions. Consult a licensed financial advisor before making any investment. Past performance does not guarantee future results.</div>
+      <div class="disclosure">仅供信息参考。这不是投资建议，也不是任何证券的买卖推荐。所有信号判断均来自公开情报数据，不能单独作为投资决策依据。任何实际投资前，请先咨询持牌专业人士。过往表现不代表未来结果。</div>
     </div>`;
   document.getElementById('lowerGrid').innerHTML=`${tickerPanel}${osintPanel}${macroPanel}${ideasPanel}`;
 }
@@ -1491,18 +1864,32 @@ function renderLower(){
 // === RIGHT RAIL ===
 function renderRight(){
   const mobile = isMobileLayout();
+  const cyber = D.cyber || {};
+  const cyberSummary = cyber.summary || {};
+  const disaster = D.disaster || {};
   // CROSS-SOURCE SIGNALS — moved from lower grid to right rail
   const signals=D.tSignals.slice(0,6).map((s,i)=>`<div class="signal-row"><strong>Signal ${i+1}</strong><p>${s}</p></div>`).join('');
 
   // OSINT TICKER — Telegram + WHO as flowing cards
   const signalMetrics=[
-    {l:'Incident Tempo',v:D.tg.urgent.length,p:70},
-    {l:'Air Theaters',v:D.air.length,p:60},
-    {l:'Thermal Spikes',v:D.thermal.reduce((s,t)=>s+t.hc,0),p:80},
-    {l:'SDR Nodes',v:D.sdr.total,p:92},
-    {l:'Chokepoints',v:D.chokepoints.length,p:50},
-    {l:'WHO Alerts',v:D.who.length,p:40}
+    {l:'事件节奏',v:D.tg.urgent.length,p:70},
+    {l:'空域战区',v:D.air.length,p:60},
+    {l:'热源尖峰',v:D.thermal.reduce((s,t)=>s+t.hc,0),p:80},
+    {l:'SDR 节点',v:D.sdr.total,p:92},
+    {l:'咽喉点',v:D.chokepoints.length,p:50},
+    {l:'WHO 告警',v:D.who.length,p:40},
+    {l:'高危漏洞',v:cyberSummary.critical||0,p:Math.min((cyberSummary.critical||0)*12,100)},
+    {l:'24 小时地震',v:disaster.quakeCount24h||0,p:Math.min((disaster.quakeCount24h||0)*3,100)}
   ];
+  const cyberRows = (cyber.recentCves || []).slice(0,4).map(v=>{
+    const safeUrl = safeExternalUrl(v.url);
+    const head = safeUrl
+      ? `<a href="${safeUrl}" target="_blank" rel="noopener noreferrer" style="color:inherit;text-decoration:none">${v.id}</a>`
+      : v.id;
+    return `<div class="signal-row"><strong>${head} · ${formatSeverityLabel(v.severity)}${v.score!=null?` · ${v.score}`:''}</strong><p>${cleanText(v.summary||'')}</p></div>`;
+  }).join('');
+  const kevRows = (cyber.kevRecent || []).slice(0,2).map(v=>`<div class="signal-row"><strong>${v.id}${v.ransomware?' · 勒索链':''}</strong><p>${[v.vendor,v.product].filter(Boolean).join(' · ')}${v.title?`<br>${cleanText(v.title)}`:''}</p></div>`).join('');
+  const cyberSignals = formatSignalList(cyber.signals || [], 2);
 
   // DELTA PANEL — what changed since last sweep
   const delta = D.delta || {};
@@ -1515,7 +1902,7 @@ function renderRight(){
   const newSigs = (delta.signals?.new || []).slice(0,4);
   const deltaRows = [];
   for(const s of newSigs){
-    deltaRows.push(`<div class="delta-row new"><span class="delta-badge new">NEW</span><span class="delta-label">${s.reason||s.label||s.key}</span></div>`);
+    deltaRows.push(`<div class="delta-row new"><span class="delta-badge new">新增</span><span class="delta-label">${s.reason||s.label||s.key}</span></div>`);
   }
   for(const s of escalated){
     const sev = s.severity==='critical'?'style="color:var(--warn);font-weight:600"':s.severity==='high'?'style="color:#ffab40"':'';
@@ -1526,9 +1913,21 @@ function renderRight(){
     const val = s.pctChange!==undefined?`${s.pctChange}%`:`${s.change}`;
     deltaRows.push(`<div class="delta-row"><span class="delta-badge down">&#9660;</span><span class="delta-label">${s.label||s.key}</span><span class="delta-val">${s.from}→${s.to} (${val})</span></div>`);
   }
-  const deltaHtml = hasDelta ? deltaRows.join('') : `<div style="padding:12px;text-align:center;color:var(--dim);font-family:var(--mono);font-size:10px">${t('delta.noChanges','No changes since last sweep')}</div>`;
+  const deltaHtml = hasDelta ? deltaRows.join('') : `<div style="padding:12px;text-align:center;color:var(--dim);font-family:var(--mono);font-size:10px">${t('delta.noChanges','本轮扫描无变化')}</div>`;
 
   document.getElementById('rightRail').innerHTML=`
+    <div class="g-panel right-cyber">
+      <div class="sec-head"><h3>${t('panels.cyberThreats','Cyber Threats')}</h3><span class="badge">NVD + KEV</span></div>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:6px;font-family:var(--mono);font-size:10px">
+        <span style="color:var(--dim)">关键: <span style="color:var(--warn)">${cyberSummary.critical||0}</span></span>
+        <span style="color:var(--dim)">高危: <span style="color:var(--accent2)">${cyberSummary.high||0}</span></span>
+        <span style="color:var(--dim)">RCE: <span style="color:var(--accent)">${cyberSummary.rceCount||0}</span></span>
+        <span style="color:var(--dim)">KEV: <span style="color:#90caf9">${cyberSummary.kevRecent||0}</span></span>
+      </div>
+      ${cyberRows || `<div style="padding:12px;text-align:center;color:var(--dim);font-family:var(--mono);font-size:10px">暂无最新 CVE 数据</div>`}
+      ${kevRows}
+      ${cyberSignals ? `<div style="margin-top:6px;padding:6px 8px;border:1px solid rgba(144,202,249,0.18);background:rgba(144,202,249,0.05);font-family:var(--mono);font-size:9px;line-height:1.5;color:#bfe2ff">${cyberSignals}</div>` : ''}
+    </div>
     <div class="g-panel right-signals">
       <div class="sec-head"><h3>${t('panels.crossSourceSignals','Cross-Source Signals')}</h3><span class="badge">${t('badges.worldview','WORLDVIEW')}</span></div>
       ${signals}
@@ -1543,34 +1942,34 @@ function renderRight(){
       ${hasDelta?`<div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:6px;font-family:var(--mono);font-size:10px">
         <span style="color:var(--dim)">${t('delta.changes','Changes')}: <span style="color:var(--accent)">${ds.totalChanges}</span></span>
         <span style="color:var(--dim)">${t('delta.critical','Critical')}: <span style="color:${ds.criticalChanges>0?'var(--warn)':'var(--dim)'}">${ds.criticalChanges||0}</span></span>
-        ${ds.signalBreakdown?`<span style="color:var(--dim)">${t('delta.new','New')}: <span style="color:#4dd0e1">${ds.signalBreakdown.new}</span> &#8593;${ds.signalBreakdown.escalated} &#8595;${ds.signalBreakdown.deescalated}</span>`:''}
+        ${ds.signalBreakdown?`<span style="color:var(--dim)">${t('delta.new','新增')}: <span style="color:#4dd0e1">${ds.signalBreakdown.new}</span> &#8593;${ds.signalBreakdown.escalated} &#8595;${ds.signalBreakdown.deescalated}</span>`:''}
       </div>`:''}
       <div class="delta-list">${deltaHtml}</div>
     </div>`;
 }
 
 // === HELPERS ===
-function getAge(d){const ms=Date.now()-new Date(d).getTime();const h=Math.floor(ms/3600000);if(h<1)return 'just now';if(h<24)return h+'h ago';return Math.floor(h/24)+'d ago'}
-function cleanText(t){return t.replace(/&#39;/g,"'").replace(/&#33;/g,"!").replace(/&amp;/g,"&").replace(/<[^>]+>/g,'')}
+function getAge(d){const ts=makeDate(d);if(!ts)return '';const ms=Date.now()-ts.getTime();if(ms<0){const future=Math.abs(ms);const min=Math.ceil(future/60000);if(min<60)return `${min}分钟后`;const h=Math.ceil(future/3600000);if(h<24)return `${h}小时后`;return `${Math.ceil(h/24)}天后`;}if(ms<60000)return t('time.now','刚刚');const min=Math.floor(ms/60000);if(min<60)return `${min}${t('time.minutesAgo','分钟前')}`;const h=Math.floor(ms/3600000);if(h<24)return `${h}${t('time.hoursAgo','小时前')}`;return `${Math.floor(h/24)}${t('time.daysAgo','天前')}`}
+function cleanText(t){if(t==null)return '';const s=String(t);return s.replace(/&#39;/g,"'").replace(/&#33;/g,"!").replace(/&amp;/g,"&").replace(/<[^>]+>/g,'')}
 function safeExternalUrl(raw){try{const u=new URL(raw,location.href);return u.protocol==='http:'||u.protocol==='https:'?u.toString():null}catch{return null}}
 
 // === BOOT SEQUENCE ===
 function runBoot(){
-  const acledStatus = D.acled?.totalEvents > 0 ? `<span class="ok">${D.acled.totalEvents} EVENTS</span>` : '<span style="color:var(--warn)">DEGRADED</span>';
+  const acledStatus = D.acled?.totalEvents > 0 ? `<span class="ok">${D.acled.totalEvents} 事件</span>` : '<span style="color:var(--warn)">降级</span>';
   const lines=[
     {text:t('boot.initializing','INITIALIZING CRUCIX ENGINE v2.1.0'),delay:0},
     {text:t('boot.connecting','CONNECTING {count} OSINT SOURCES...').replace('{count}',D.meta.sourcesQueried),delay:400},
-    {text:'&#9500;&#9472; '+t('boot.sourceGroup1','OPENSKY · FIRMS · KIWISDR · MARITIME'),delay:700},
-    {text:'&#9500;&#9472; '+t('boot.sourceGroup2','FRED · BLS · EIA · TREASURY · GSCPI'),delay:900},
-    {text:'&#9500;&#9472; '+t('boot.sourceGroup3','TELEGRAM · SAFECAST · EPA · WHO · OFAC'),delay:1100},
-    {text:'&#9492;&#9472; '+t('boot.sourceGroup4','GDELT · NOAA · PATENTS · BLUESKY · REDDIT'),delay:1300},
+    {text:'&#9500;&#9472; '+t('boot.sourceGroup1','OPENSKY · FIRMS · USGS · EONET · MARITIME'),delay:700},
+    {text:'&#9500;&#9472; '+t('boot.sourceGroup2','FRED · BLS · EIA · TREASURY · WORLDBANK'),delay:900},
+    {text:'&#9500;&#9472; '+t('boot.sourceGroup3','TELEGRAM · SAFECAST · EPA · WHO · NVD'),delay:1100},
+    {text:'&#9492;&#9472; '+t('boot.sourceGroup4','GDELT · NOAA · SPACEFLIGHT · LAUNCHLIB · CISA-KEV'),delay:1300},
     {text:t('boot.sweepComplete','SWEEP COMPLETE — {ok}/{total} SOURCES').replace('{ok}',`<span class="count">${D.meta.sourcesOk}</span>`).replace('{total}',D.meta.sourcesQueried)+' <span class="ok">'+t('boot.ok','OK')+'</span>',delay:1700},
     {text:t('boot.acledLayer','ACLED CONFLICT LAYER')+': '+acledStatus,delay:1900},
     {text:t('boot.flightCorridors','FLIGHT CORRIDORS')+': <span class="ok">'+t('boot.active','ACTIVE')+'</span> &#183; '+t('boot.dualProjection','DUAL PROJECTION')+': <span class="ok">'+t('boot.ready','READY')+'</span>',delay:2100},
     {text:t('boot.intelligenceSynthesis','INTELLIGENCE SYNTHESIS')+': <span class="ok">'+t('boot.active','ACTIVE')+'</span>',delay:2400},
   ];
   const container=document.getElementById('bootLines');
-  document.getElementById('bootFinal').textContent=t('dashboard.terminalActive','TERMINAL ACTIVE');
+  document.getElementById('bootFinal').textContent=t('dashboard.terminalActive','终端在线');
   const tl=gsap.timeline();
   tl.to('.logo-ring',{opacity:1,duration:0.6,ease:'power2.out'},0);
   tl.to(container,{opacity:1,duration:0.3},0.3);
@@ -1609,16 +2008,16 @@ function buildOsintPanel(panelClass='', maxHeight=260){
   const osintCards=osintItems.map(p=>{
     const isU=p.urgentFlags&&p.urgentFlags.length>0;
     const views=p.views?p.views>=1000?`${(p.views/1000).toFixed(0)}K`:p.views:'';
-    const age=p.date?getAge(p.date):'';
+    const timeMeta=buildStreamTimeMeta(p.date, p.channel || (p.isWho ? 'WHO' : 'OSINT'));
     const flags=(p.urgentFlags||[]).map(f=>`<span class="tk-src tg" style="margin-right:2px">${f}</span>`).join('');
     const srcCls=p.isWho?'style="color:#69f0ae;border-color:rgba(105,240,174,0.4)"':'class="tk-src tg"';
-    return `<div class="tk-card ${isU?'urgent':''}"><span ${srcCls}>${(p.channel||'OSINT').toUpperCase().substring(0,14)}</span>${views?`<span class="tk-src other">${views}</span>`:''}<span class="tk-time">${age}</span>${flags}<div class="tk-head">${cleanText((p.text||'').substring(0,160))}</div></div>`;
+    return `<div class="tk-card ${isU?'urgent':''}"><span ${srcCls}>${(p.channel||'OSINT').toUpperCase().substring(0,14)}</span>${views?`<span class="tk-src other">${views}</span>`:''}${flags}<div class="tk-head">${cleanText((p.text||'').substring(0,160))}</div><div class="tk-time">${timeMeta}</div></div>`;
   }).join('');
   const osintDuration=Math.max(25,osintItems.length*3);
   return `<div class="g-panel ${panelClass}" style="display:flex;flex-direction:column">
-      <div class="sec-head"><h3>${t('panels.osintStream','OSINT Stream')}</h3><span class="badge">${D.tg.urgent.length} ${t('badges.urgent','URGENT')}</span></div>
+      <div class="sec-head"><h3>${t('panels.osintStream','公开情报流')}</h3><span class="badge">${D.tg.urgent.length} ${t('badges.urgent','紧急')}</span></div>
       <div class="ticker-wrap" style="--ticker-duration:${osintDuration}s;max-height:${maxHeight}px">
-        <div class="ticker-track">${osintCards}${lowPerfMode ? '' : osintCards}</div>
+        <div class="ticker-track">${osintCards}</div>
       </div>
     </div>`;
 }
@@ -1632,10 +2031,10 @@ function renderGlossary(){
         <strong>${item.term}</strong>
         <span class="glossary-tag">${item.category}</span>
       </div>
-      <div class="glossary-line"><span class="glossary-label">Meaning</span>${item.meaning}</div>
-      <div class="glossary-line"><span class="glossary-label">Why it matters</span>${item.matters}</div>
-      <div class="glossary-line"><span class="glossary-label">Not proof of</span>${item.notMeaning}</div>
-      <div class="glossary-line"><span class="glossary-label">Example</span>${item.example}</div>
+      <div class="glossary-line"><span class="glossary-label">含义</span>${item.meaning}</div>
+      <div class="glossary-line"><span class="glossary-label">为什么重要</span>${item.matters}</div>
+      <div class="glossary-line"><span class="glossary-label">不代表</span>${item.notMeaning}</div>
+      <div class="glossary-line"><span class="glossary-label">示例</span>${item.example}</div>
     </div>
   `).join('');
 }
@@ -1699,6 +2098,7 @@ function syncResponsiveLayout(force=false){
 // === REINIT (for live updates without boot sequence) ===
 function reinit(){
   renderTopbar();renderLeftRail();renderLower();renderRight();
+  refreshDynamicTimeNodes();
   plotMarkers();
 }
 
@@ -1713,7 +2113,7 @@ function connectSSE(){
     try {
       const msg = JSON.parse(e.data);
       if (msg.type === 'update' && msg.data) {
-        D = msg.data;
+        D = applyClientSideFallbacks(msg.data);
         reinit();
         // Flash the topbar to indicate update
         const topbar = document.querySelector('.topbar');
@@ -1723,7 +2123,7 @@ function connectSSE(){
         }
       } else if (msg.type === 'sweep_start') {
         const badge = document.querySelector('.alert-badge');
-        if (badge) { badge.textContent = 'SWEEPING...'; badge.style.borderColor = 'var(--accent)'; }
+        if (badge) { badge.textContent = '扫描中...'; badge.style.borderColor = 'var(--accent)'; }
       }
     } catch {}
   };
@@ -1737,21 +2137,16 @@ function connectSSE(){
 // === INIT ===
 let booted = false;
 function init(){
+  D = applyClientSideFallbacks(D);
   renderTopbar();renderLeftRail();renderLower();renderRight();
   renderGlossary();
+  ensureDynamicClockTimer();
+  refreshDynamicTimeNodes();
   initMap();
   if (!booted) { runBoot(); booted = true; }
   // Close popup on click outside markers
   document.getElementById('mapContainer').addEventListener('click',e=>{
     if(!e.target.closest('.map-popup')) closePopup();
-  });
-  // Open article links from ticker cards
-  document.addEventListener('click',e=>{
-    const card=e.target.closest('.tk-card[data-url]');
-    if(card){
-      const url=safeExternalUrl(card.dataset.url);
-      if(url) window.open(url,'_blank','noopener');
-    }
   });
   document.addEventListener('keydown',e=>{
     if(e.key === 'Escape') closeGlossary();
@@ -1763,17 +2158,17 @@ document.addEventListener('DOMContentLoaded', () => {
   const hasInlineData = !!(D && D.meta);
   const canProbeApi = location.protocol !== 'file:';
 
-  if (canProbeApi && !hasInlineData) {
-    // Server mode: always fetch live data from API (ignore any stale inline D)
+  if (canProbeApi) {
+    // Server mode: always fetch live data from API and connect SSE, even if stale inline D exists.
     fetch('/api/data')
       .then(r => r.json())
-      .then(data => { D = data; init(); connectSSE(); })
+      .then(data => { D = applyClientSideFallbacks(data); init(); connectSSE(); })
       .catch(() => {
-        // Should not reach here — server routes to loading.html when no data
-        if (D && D.meta) { init(); connectSSE(); }
+        if (D && D.meta) { D = applyClientSideFallbacks(D); init(); connectSSE(); }
       });
   } else if (hasInlineData) {
     // File mode: use inline data
+    D = applyClientSideFallbacks(D);
     init();
   }
 });
