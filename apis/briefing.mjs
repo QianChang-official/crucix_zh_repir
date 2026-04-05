@@ -48,7 +48,9 @@ import { briefing as launchLibrary } from './sources/launch-library.mjs';
 import { briefing as yfinance } from './sources/yfinance.mjs';
 import { briefing as worldBank } from './sources/worldbank.mjs';
 import { briefing as hotNews } from './sources/hot-news.mjs';
+import { briefing as cnFinanceRss } from './sources/cn-finance-rss.mjs';
 import { briefing as flightera } from './sources/flightera.mjs';
+import { fetchClsTelegraph } from './sources/cls-telegraph.mjs';
 
 // === Tier 6: Cyber & Infrastructure ===
 import { briefing as cisaKev } from './sources/cisa-kev.mjs';
@@ -81,6 +83,8 @@ export const SOURCE_DEFINITIONS = [
   { name: 'Comtrade', fn: comtrade },
   { name: 'WorldBank', fn: worldBank },
   { name: 'Hot-News', fn: hotNews },
+  { name: 'CN-Finance-RSS', fn: cnFinanceRss },
+  { name: 'CLS-Telegraph', fn: fetchClsTelegraph },
   { name: 'Flightera', fn: flightera },
 
   // Tier 3: Weather, Environment, Technology, Social
