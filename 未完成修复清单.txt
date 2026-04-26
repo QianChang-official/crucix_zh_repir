@@ -1,7 +1,15 @@
 CRUCIX 未完成修复清单
-更新时间: 2026-04-05 第二轮修复
+更新时间: 2026-04-26 第三轮校验
 
-=== 本轮新增修复（第二轮） ===
+=== 本轮新增修复（第三轮） ===
+
+14. 中文默认语言修正 + 校验结论同步
+   - lib/i18n.mjs: 默认语言由 en 改为 zh，与本地中文化分支配置目标保持一致。
+   - 已验证: npm install 可通过，better-sqlite3 可正常加载并初始化 SQLite。
+   - 已验证: npm run diag 可跑通，server.mjs 可启动并完成首轮 sweep。
+   - 已验证: /api/health 返回 configuredSources=39、sourcesOk=36、sourcesFailed=3、refreshIntervalMinutes=15。
+   - 已验证: /api/history/sweeps 可返回持久化历史记录，说明 sweep_runs / section snapshots / news 持久化链路生效。
+   - 已确认: 当前分支已包含官方 origin/master 最新提交，无额外上游主线 commit 需要补拉；后续仅需继续跟踪新上游变更。
 
 7. 失效源识别与 UI 显示
    - inject.mjs: V2 输出新增 sourceErrors 字段，将 briefing.mjs 的 data.errors 数组透传到前端。
@@ -34,11 +42,11 @@ CRUCIX 未完成修复清单
     - 次日自动刷新。
 
 13. 待确认/观察项
-    - npm install 后确认 better-sqlite3 编译通过。
-    - 验证 CLS nodeapi 端点可达性。
-    - 标签页切换在 SSE 更新后不跳回。
-    - 源计数变为 39: 确认各处一致。
-    - 航班缓存跨天切换是否正确。
+   - 已验证: npm install 后 better-sqlite3 编译/加载通过，SQLite 初始化成功。
+   - 待继续观察: CLS nodeapi 端点可达性（代码已具备 roll API fallback，运行期仍需长期观察）。
+   - 已从代码确认: 标签页状态通过 localStorage 读取 `crucix_active_tab`，SSE 更新不会主动重置 activeTab。
+   - 已验证: 源计数为 39，`TOTAL_SOURCES` 与 `/api/health` 结果一致。
+   - 已从代码确认: 航班缓存按 YYYY-MM-DD 分桶，跨天会自动失效并重抓。
 
 1. 本轮已落地的页面改动
    - 实时更新链路已补强: 前端保留 SSE，同时增加 /api/data 轮询兜底。
