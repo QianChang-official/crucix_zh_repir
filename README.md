@@ -476,9 +476,10 @@ crucix/
 ├── .env.example                       # 环境变量模板
 ├── Dockerfile                         # 容器镜像
 ├── docker-compose.yml                 # Docker 编排
-├── LICENSE                            # AGPL-3.0
-└── 未完成修复清单.txt                  # 开发进度追踪
+└── LICENSE                            # AGPL-3.0
 ```
+
+运行后会在本地额外生成 `data/`、`runs/`、`node_modules/` 等运行时目录，这些内容不作为仓库源码的一部分进行跟踪。
 
 ---
 
