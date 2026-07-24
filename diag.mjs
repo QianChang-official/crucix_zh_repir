@@ -71,7 +71,7 @@ for (const [path, label] of modules) {
 console.log('');
 const net = await import('net');
 const port = 3117;
-const server = net.default.createServer();
+const server = net.createServer();
 try {
   await new Promise((resolve, reject) => {
     server.once('error', reject);

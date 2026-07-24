@@ -57,7 +57,30 @@ import { briefing as cisaKev } from './sources/cisa-kev.mjs';
 import { briefing as cloudflareRadar } from './sources/cloudflare-radar.mjs';
 import { briefing as nvd } from './sources/nvd.mjs';
 
-const SOURCE_TIMEOUT_MS = 30_000; // 30s max per individual source
+// === Tier 7: China Market & Finance (NEW v2.2) ===
+import { briefing as cnStock } from './sources/cn-stock.mjs';
+import { briefing as goldPrice } from './sources/gold-price.mjs';
+import { briefing as exchangeRate } from './sources/exchange-rate.mjs';
+import { briefing as cnFuel } from './sources/cn-fuel.mjs';
+import { briefing as baiduFinanceHot } from './sources/baidu-finance-hot.mjs';
+
+// === Tier 8: China OSINT & Intel (NEW v2.2) ===
+import { briefing as ipGeo } from './sources/ip-geo.mjs';
+import { briefing as cnWeather } from './sources/cn-weather.mjs';
+import { briefing as domainIntelCn } from './sources/domain-intel-cn.mjs';
+import { briefing as multiHotboard } from './sources/multi-hotboard.mjs';
+import { briefing as phoneIntel } from './sources/phone-intel.mjs';
+import { briefing as translate } from './sources/translate.mjs';
+import { briefing as netTools } from './sources/net-tools.mjs';
+import { briefing as githubIntel } from './sources/github-intel.mjs';
+import { briefing as cnRail } from './sources/cn-rail.mjs';
+import { briefing as socialCn } from './sources/social-cn.mjs';
+
+const SOURCE_TIMEOUT_MS = 30_000; // 30s default max per individual source
+const SLOW_SOURCE_TIMEOUT_MS = 15_000; // 15s for known slow sources
+
+// Sources with known latency issues get a shorter timeout to prevent blocking
+const SLOW_SOURCES = new Set(['GDELT', 'EPA', 'OFAC', 'Space']);
 
 export const SOURCE_DEFINITIONS = [
   // Tier 1: Core OSINT & Geopolitical
@@ -110,6 +133,25 @@ export const SOURCE_DEFINITIONS = [
   { name: 'CISA-KEV', fn: cisaKev },
   { name: 'Cloudflare-Radar', fn: cloudflareRadar },
   { name: 'NVD', fn: nvd },
+
+  // Tier 7: China Market & Finance (NEW v2.2)
+  { name: 'CN-Stock', fn: cnStock },
+  { name: 'Gold-Price', fn: goldPrice },
+  { name: 'Exchange-Rate', fn: exchangeRate },
+  { name: 'CN-Fuel', fn: cnFuel },
+  { name: 'Baidu-Finance-Hot', fn: baiduFinanceHot },
+
+  // Tier 8: China OSINT & Intel (NEW v2.2)
+  { name: 'IP-Geo', fn: ipGeo },
+  { name: 'CN-Weather', fn: cnWeather },
+  { name: 'Domain-Intel-CN', fn: domainIntelCn },
+  { name: 'Multi-Hotboard', fn: multiHotboard },
+  { name: 'Phone-Intel', fn: phoneIntel },
+  { name: 'Translate', fn: translate },
+  { name: 'Net-Tools', fn: netTools },
+  { name: 'GitHub-Intel', fn: githubIntel },
+  { name: 'CN-Rail', fn: cnRail },
+  { name: 'Social-CN', fn: socialCn },
 ];
 
 export const TOTAL_SOURCES = SOURCE_DEFINITIONS.length;
@@ -121,11 +163,12 @@ function resolveArgs(definition) {
 
 export async function runSource(name, fn, ...args) {
   const start = Date.now();
+  const timeoutMs = SLOW_SOURCES.has(name) ? SLOW_SOURCE_TIMEOUT_MS : SOURCE_TIMEOUT_MS;
   let timer;
   try {
     const dataPromise = fn(...args);
     const timeoutPromise = new Promise((_, reject) => {
-      timer = setTimeout(() => reject(new Error(`Source ${name} timed out after ${SOURCE_TIMEOUT_MS / 1000}s`)), SOURCE_TIMEOUT_MS);
+      timer = setTimeout(() => reject(new Error(`Source ${name} timed out after ${timeoutMs / 1000}s`)), timeoutMs);
     });
     const data = await Promise.race([dataPromise, timeoutPromise]);
     return { name, status: 'ok', durationMs: Date.now() - start, data };
@@ -153,7 +196,7 @@ export async function fullBriefing() {
 
   const output = {
     crucix: {
-      version: '2.0.0',
+      version: '2.2.0',
       timestamp: new Date().toISOString(),
       totalDurationMs: totalMs,
       sourcesQueried: sources.length,

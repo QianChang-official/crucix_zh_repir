@@ -1,7 +1,7 @@
 {
   "name": "crucix",
-  "version": "2.0.0",
-  "description": "Local intelligence engine - 27 OSINT sources, live dashboard, public demo at crucix.live, auto-refresh, optional LLM layer.",
+  "version": "2.2.0",
+  "description": "Local intelligence engine - 54 OSINT sources, live dashboard, public demo at crucix.live, auto-refresh, optional LLM layer.",
   "type": "module",
   "scripts": {
     "start": "node server.mjs",
@@ -12,7 +12,12 @@
     "brief:save": "node apis/save-briefing.mjs",
     "diag": "node diag.mjs",
     "clean": "node scripts/clean.mjs",
-    "fresh-start": "npm run clean && npm start"
+    "fresh-start": "npm run clean && npm start",
+    "test": "node scripts/run-tests.mjs",
+    "test:unit": "node scripts/run-tests.mjs --suite=unit",
+    "test:integration": "node scripts/run-tests.mjs --suite=integration",
+    "test:e2e": "node scripts/run-tests.mjs --suite=e2e",
+    "test:report": "node scripts/run-tests.mjs --report"
   },
   "keywords": [
     "osint",
@@ -31,9 +36,13 @@
     "express": "^5.1.0"
   },
   "optionalDependencies": {
-    "discord.js": "^14.25.1"
+    "discord.js": "14.27.0"
   },
   "overrides": {
-    "undici": "^7.24.4"
+    "undici": "^7.30.0",
+    "ws": "^8.21.0",
+    "qs": "^6.15.2",
+    "path-to-regexp": "^8.4.0",
+    "body-parser": "^2.3.0"
   }
 }

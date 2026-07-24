@@ -47,3 +47,12 @@ MAINTAINER_DECISIONS.local.md
 
 # Local deploy config
 dashboard/public/vercel.json
+
+# WorkBuddy workspace memory
+.workbuddy/
+
+# Test results (regenerated on each run)
+test-results/
+
+# npm cache (local)
+.npm-cache/

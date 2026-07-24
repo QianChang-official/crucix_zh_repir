@@ -235,6 +235,7 @@ if (discordAlerter.isConfigured) {
 
 // === Express Server ===
 const app = express();
+app.use(express.json({ limit: '1mb' }));
 app.use(express.static(join(ROOT, 'dashboard/public')));
 
 // Serve loading page until first sweep completes, then the dashboard with injected locale
@@ -313,6 +314,168 @@ app.get('/api/history/news', async (req, res) => {
     limit: Math.min(Math.max(parseInt(req.query.limit) || 50, 1), 200),
   };
   res.json(await getNewsHistory(opts));
+});
+
+// ═══ API v2: Individual Source Data (NEW v2.2) ═══════════════════════════════
+
+// API: List all available sources
+app.get('/api/v2/sources', async (req, res) => {
+  const { SOURCE_DEFINITIONS } = await import('./apis/briefing.mjs');
+  res.json({
+    total: SOURCE_DEFINITIONS.length,
+    sources: SOURCE_DEFINITIONS.map(s => ({ name: s.name, hasArgs: !!s.args })),
+  });
+});
+
+// API: Trigger a single source on-demand
+app.get('/api/v2/source/:name', async (req, res) => {
+  const sourceName = String(req.params.name || '').trim();
+  if (!sourceName) return res.status(400).json({ error: 'Source name required' });
+
+  try {
+    const { SOURCE_DEFINITIONS, runSource, resolveArgs: _ } = await import('./apis/briefing.mjs');
+    const def = SOURCE_DEFINITIONS.find(s => s.name.toLowerCase() === sourceName.toLowerCase());
+    if (!def) return res.status(404).json({ error: `Source "${sourceName}" not found`, available: SOURCE_DEFINITIONS.map(s => s.name) });
+
+    const args = typeof def.args === 'function' ? def.args() : (def.args || []);
+    const result = await runSource(def.name, def.fn, ...args);
+    res.json(result);
+  } catch (e) {
+    res.status(500).json({ error: e.message, source: sourceName });
+  }
+});
+
+// API: China market data (A-shares, gold, fuel, exchange rates)
+app.get('/api/v2/china/market', async (req, res) => {
+  try {
+    const { briefing: cnStock } = await import('./apis/sources/cn-stock.mjs');
+    const { briefing: goldPrice } = await import('./apis/sources/gold-price.mjs');
+    const { briefing: cnFuel } = await import('./apis/sources/cn-fuel.mjs');
+    const { briefing: exchangeRate } = await import('./apis/sources/exchange-rate.mjs');
+
+    const [stock, gold, fuel, fx] = await Promise.allSettled([
+      cnStock(), goldPrice(), cnFuel(), exchangeRate(),
+    ]);
+
+    res.json({
+      timestamp: new Date().toISOString(),
+      stock: stock.status === 'fulfilled' ? stock.value : { error: stock.reason?.message },
+      gold: gold.status === 'fulfilled' ? gold.value : { error: gold.reason?.message },
+      fuel: fuel.status === 'fulfilled' ? fuel.value : { error: fuel.reason?.message },
+      exchangeRate: fx.status === 'fulfilled' ? fx.value : { error: fx.reason?.message },
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// API: China OSINT (IP geo, domain intel, phone intel, social)
+app.get('/api/v2/china/osint', async (req, res) => {
+  try {
+    const { briefing: ipGeo } = await import('./apis/sources/ip-geo.mjs');
+    const { briefing: domainIntel } = await import('./apis/sources/domain-intel-cn.mjs');
+    const { briefing: phoneIntel } = await import('./apis/sources/phone-intel.mjs');
+    const { briefing: socialCn } = await import('./apis/sources/social-cn.mjs');
+
+    const [ip, domain, phone, social] = await Promise.allSettled([
+      ipGeo(), domainIntel(), phoneIntel(), socialCn(),
+    ]);
+
+    res.json({
+      timestamp: new Date().toISOString(),
+      ipGeo: ip.status === 'fulfilled' ? ip.value : { error: ip.reason?.message },
+      domainIntel: domain.status === 'fulfilled' ? domain.value : { error: domain.reason?.message },
+      phoneIntel: phone.status === 'fulfilled' ? phone.value : { error: phone.reason?.message },
+      socialCN: social.status === 'fulfilled' ? social.value : { error: social.reason?.message },
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// API: China weather & environment
+app.get('/api/v2/china/weather', async (req, res) => {
+  try {
+    const { briefing: cnWeather } = await import('./apis/sources/cn-weather.mjs');
+    const data = await cnWeather();
+    res.json(data);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// API: Multi-platform hot topics aggregator
+app.get('/api/v2/hotboard', async (req, res) => {
+  try {
+    const { briefing: multiHotboard } = await import('./apis/sources/multi-hotboard.mjs');
+    const data = await multiHotboard();
+    res.json(data);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// API: GitHub intelligence
+app.get('/api/v2/github-intel', async (req, res) => {
+  try {
+    const { briefing: githubIntel } = await import('./apis/sources/github-intel.mjs');
+    const data = await githubIntel();
+    res.json(data);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// API: Network tools (ping, dns, port scan)
+app.get('/api/v2/net-tools', async (req, res) => {
+  try {
+    const { briefing: netTools } = await import('./apis/sources/net-tools.mjs');
+    const data = await netTools();
+    res.json(data);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// API: Translate text
+app.post('/api/v2/translate', async (req, res) => {
+  try {
+    const { text, from = 'en', to = 'zh' } = req.body || {};
+    if (!text) return res.status(400).json({ error: 'text field required' });
+
+    const { translate } = await import('./apis/sources/translate.mjs');
+    const result = await translate(text, from, to);
+    res.json({ original: text, translated: result, from, to });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// API: China railway info
+app.get('/api/v2/china/rail', async (req, res) => {
+  try {
+    const { briefing: cnRail } = await import('./apis/sources/cn-rail.mjs');
+    const data = await cnRail();
+    res.json(data);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// API: Sweep status & timing breakdown
+app.get('/api/v2/sweep-status', async (req, res) => {
+  res.json({
+    sweepInProgress,
+    sweepStartedAt,
+    lastSweepTime,
+    nextSweep: lastSweepTime
+      ? new Date(new Date(lastSweepTime).getTime() + config.refreshIntervalMinutes * 60000).toISOString()
+      : null,
+    uptime: Math.floor((Date.now() - startTime) / 1000),
+    sseClients: sseClients.size,
+    totalSources: TOTAL_SOURCES,
+    lastDelta: memory.getLastDelta()?.summary || null,
+  });
 });
 
 // SSE: live updates
