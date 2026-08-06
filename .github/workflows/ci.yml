@@ -1,0 +1,84 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  install:
+    name: Install (npm ci)
+    # better-sqlite3 原生模块：ubuntu 自带 make/g++/python3，
+    # prebuild 不可用时也能源码编译成功
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc   # 读 .nvmrc → 22，锁定与本地一致
+          cache: npm
+      - name: Install dependencies (ci)
+        run: npm ci
+      - name: Environment diagnostics (info)
+        continue-on-error: true      # 非门禁，仅定位环境问题用
+        run: npm run diag
+
+  test:
+    name: Test (unit + integration + e2e)
+    needs: install
+    runs-on: ubuntu-latest
+    timeout-minutes: 20   # runner 无内置超时，job 超时兜底防挂起
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      # 自研 runner：失败 exit 1 → job 红 → PR 门禁红
+      - name: Run test suite
+        run: npm test
+
+  smoke:
+    name: Start probe (smoke)
+    needs: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Start server (background)
+        run: |
+          PORT=3117 npm start > server.log 2>&1 &
+          echo $! > server.pid
+      - name: Wait and probe ready
+        run: |
+          ok=0
+          for i in $(seq 1 30); do
+            if curl -fsS -o /dev/null http://127.0.0.1:3117/; then
+              echo "server ready after ${i}s"; ok=1; break
+            fi
+            sleep 1
+          done
+          if [ "$ok" -ne 1 ]; then
+            echo '::error::server 30s 未就绪'; cat server.log; exit 1
+          fi
+      - name: Stop server (always cleanup)
+        if: always()
+        run: |
+          if [ -f server.pid ]; then kill "$(cat server.pid)" || true; fi
