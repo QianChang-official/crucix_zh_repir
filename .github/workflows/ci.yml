@@ -30,7 +30,8 @@ jobs:
         run: npm ci
       - name: Environment diagnostics (info)
         continue-on-error: true      # 非门禁，仅定位环境问题用
-        run: npm run diag
+        # timeout 兜底：diag 末尾已显式 process.exit(0)，此处置防未来回归挂死整个 job
+        run: timeout 120 npm run diag
 
   test:
     name: Test (unit + integration + e2e)
