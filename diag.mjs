@@ -98,3 +98,8 @@ try {
   console.error('❌ server.mjs CRASHED:', err.message);
   console.error(err.stack);
 }
+
+// 诊断到此为止：server.mjs 的 app.listen + setInterval 会永久挂住事件循环，
+// 不显式退出则进程永不结束（CI 中曾因此挂到 job 超时）。诊断目的已达，硬退出。
+console.log('\n=== DIAGNOSTICS COMPLETE ===');
+process.exit(0);
