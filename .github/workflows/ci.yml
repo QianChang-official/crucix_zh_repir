@@ -70,7 +70,9 @@ jobs:
         run: |
           ok=0
           for i in $(seq 1 30); do
-            if curl -fsS -o /dev/null http://127.0.0.1:3117/; then
+            # 探针使用 /api/health（纯 JSON 健康状态），而非首页 /——首页渲染依赖 jarvis.html
+            # 与当前数据状态，与"服务是否可用"无关，探它会产生噪音误报
+            if curl -fsS http://127.0.0.1:3117/api/health | grep -q '"status":"ok"'; then
               echo "server ready after ${i}s"; ok=1; break
             fi
             sleep 1
@@ -81,4 +83,5 @@ jobs:
       - name: Stop server (always cleanup)
         if: always()
         run: |
-          if [ -f server.pid ]; then kill "$(cat server.pid)" || true; fi
+          # kill 进程组（负 PID），连带杀掉 npm 派生的 node 子进程，避免残留孤儿进程
+          if [ -f server.pid ]; then kill -- -"$(cat server.pid)" 2>/dev/null || kill "$(cat server.pid)" 2>/dev/null || true; fi
